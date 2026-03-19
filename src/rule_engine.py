@@ -98,10 +98,14 @@ PRIMARY_ASPECT_KEYWORDS = {
 
 EMOTION_KEYWORDS = {
     "very_angry": [
-        "fraud", "scam", "cheater", "threat", "harassment", "illegal",
-        "court", "police", "worst ever", "disgusting", "abuse", "abusive",
-        "dhokha", "dhamki", "chor", "loot", "gunda", "gaali", "bahut gussa",
-        "फ्रॉड", "धोखा", "धमकी", "पुलिस", "कोर्ट", "गाली"
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "threat", "harassment", "illegal", "court", "police",
+        "worst ever", "disgusting", "abuse", "abusive",
+        "you are cheater", "you are cheaters", "these guys are cheaters",
+        "fraud company", "scam company",
+        "dhokha", "dhokebaaz", "dhamki", "chor", "loot", "gunda",
+        "gaali", "bahut gussa",
+        "फ्रॉड", "धोखा", "धोखेबाज़", "धमकी", "पुलिस", "कोर्ट", "गाली"
     ],
     "angry": [
         "angry", "furious", "rude", "pathetic", "bad service", "poor service",
@@ -137,10 +141,13 @@ EMOTION_KEYWORDS = {
 CUSTOMER_INTENT_KEYWORDS = {
     "complaint": [
         "complaint", "issue", "problem", "worst", "bad", "pathetic",
-        "poor service", "scam", "fraud", "harassment", "threat",
+        "poor service", "scam", "scammers", "fraud", "frauds",
+        "cheater", "cheaters", "harassment", "threat",
         "no response", "not working", "wrong", "damaged", "missing",
-        "shikayat", "bekar", "ghatiya", "bahut bura", "dhokha", "pareshan",
-        "शिकायत", "खराब", "बुरा", "धोखा"
+        "you are cheater", "you are cheaters", "fraud company", "scam company",
+        "shikayat", "bekar", "ghatiya", "bahut bura", "dhokha", "dhokebaaz",
+        "pareshan", "chor",
+        "शिकायत", "खराब", "बुरा", "धोखा", "धोखेबाज़"
     ],
     "delay": [
         "delay", "delayed", "late", "pending", "waiting", "no update",
@@ -181,10 +188,12 @@ CUSTOMER_INTENT_KEYWORDS = {
 
 PRIORITY_KEYWORDS = {
     "critical": [
-        "fraud", "scam", "cheater", "police", "court", "illegal",
-        "harassment", "threat", "blackmail", "abuse", "unsafe",
-        "dhokha", "dhamki", "chor", "gunda", "gaali",
-        "फ्रॉड", "धमकी", "कोर्ट", "पुलिस"
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "police", "court", "illegal", "harassment", "threat",
+        "blackmail", "abuse", "unsafe", "fraud company", "scam company",
+        "you are cheater", "you are cheaters",
+        "dhokha", "dhokebaaz", "dhamki", "chor", "gunda", "gaali",
+        "फ्रॉड", "धमकी", "कोर्ट", "पुलिस", "धोखा"
     ],
     "high": [
         "money deducted", "charged twice", "wrong amount", "damaged", "broken",
@@ -209,8 +218,10 @@ PRIORITY_KEYWORDS = {
 ASPECT_SENT_NEG_KW = [
     "bad", "poor", "worst", "damaged", "broken", "not working", "delay",
     "failed", "error", "refund not received", "no response",
-    "bekar", "ghatiya", "der", "dhokha",
-    "खराब", "देरी"
+    "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+    "fraud company", "scam company", "dhokha", "dhokebaaz", "chor",
+    "bekar", "ghatiya", "der",
+    "खराब", "देरी", "धोखा"
 ]
 
 ASPECT_SENT_POS_KW = [
