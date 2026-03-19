@@ -15,7 +15,7 @@ from src.rule_engine import (
     ASPECT_SENT_POS_KW,
     ASPECT_SENT_NEU_KW
 )
-from src.utils import normalize, best_match_id, any_hit, parse_global_sentiment, matched_keywords
+from src.utils import normalize, best_match_id, any_hit, matched_keywords
 from src.bert_model import bert_sentiment
 
 PHONE_PATTERN = re.compile(r"\b\d{10}\b")
@@ -40,26 +40,17 @@ POSITIVE_ASPECT_ALLOW = {
     PRIMARY_ASPECT_LABELS.index("product_quality"): True
 }
 
-def assign_aspect_sentiment(text: str, global_sentiment: int, aspect: int) -> int:
-    t = text
-
-    if any_hit(t, ASPECT_SENT_NEG_KW):
+def detect_rule_sentiment(text: str, aspect: int) -> int:
+    if any_hit(text, ASPECT_SENT_NEG_KW):
         return 0
-
-    if any_hit(t, ASPECT_SENT_POS_KW):
+    if any_hit(text, ASPECT_SENT_POS_KW):
         if POSITIVE_ASPECT_ALLOW.get(int(aspect), False):
             return 2
         return 1
-
-    if any_hit(t, ASPECT_SENT_NEU_KW):
+    if any_hit(text, ASPECT_SENT_NEU_KW):
         return 1
-
-    if int(global_sentiment) == 0 and NEGATIVE_ASPECT_BIAS.get(int(aspect), False):
+    if NEGATIVE_ASPECT_BIAS.get(int(aspect), False):
         return 0
-
-    if int(global_sentiment) == 2 and POSITIVE_ASPECT_ALLOW.get(int(aspect), False):
-        return 2
-
     return 1
 
 def hybrid_sentiment(text: str, rule_sentiment: int):
@@ -68,7 +59,7 @@ def hybrid_sentiment(text: str, rule_sentiment: int):
         return bert_pred, "BERT", confidence
     return rule_sentiment, "RULE", confidence
 
-def tone_override(row_text: str, asp_sent: int) -> int:
+def tone_override(row_text: str, sentiment: int) -> int:
     complaint_id = CUSTOMER_INTENT_LABELS.index("complaint")
     delay_id = CUSTOMER_INTENT_LABELS.index("delay")
     praise_id = CUSTOMER_INTENT_LABELS.index("praise")
@@ -86,16 +77,16 @@ def tone_override(row_text: str, asp_sent: int) -> int:
     if any_hit(row_text, CUSTOMER_INTENT_KEYWORDS["praise"]):
         return praise_id
 
-    if asp_sent == 0:
+    if sentiment == 0:
         return neg_tone_id
-    if asp_sent == 2:
+    if sentiment == 2:
         return pos_tone_id
     return neu_tone_id
 
 def calculate_priority_score(text, has_urgent, strong_negative):
     score = 0
 
-    if any_hit(text, ["fraud", "scam", "threat", "harassment", "illegal", "dhokha"]):
+    if any_hit(text, ["fraud", "frauds", "scam", "scammers", "cheater", "cheaters", "threat", "harassment", "illegal", "dhokha", "dhokebaaz"]):
         score += 5
 
     if any_hit(text, ["money deducted", "double payment", "refund not received", "damaged", "not delivered"]):
@@ -128,8 +119,6 @@ def score_to_priority(score):
 def enforce_consistency(sentiment, intent, priority, emotion):
     low = PRIORITY_LABELS.index("low")
     medium = PRIORITY_LABELS.index("medium")
-    high = PRIORITY_LABELS.index("high")
-    critical = PRIORITY_LABELS.index("critical")
 
     if sentiment == 2:
         return low
@@ -163,14 +152,19 @@ def collect_matches(text: str) -> str:
     deduped = list(dict.fromkeys(all_kw))
     return ", ".join(deduped[:12])
 
-def analyze_single(review_text: str, sentiment_value) -> dict:
+def analyze_single(review_text: str) -> dict:
     t = normalize(review_text)
-    global_sentiment = parse_global_sentiment(sentiment_value)
 
     has_phone = bool(PHONE_PATTERN.search(review_text))
     has_email = bool(EMAIL_PATTERN.search(review_text))
     strong_negative = bool(STRONG_NEG_PATTERN.search(t))
     is_urgent = bool(URGENT_PATTERN.search(t))
+
+    severe_risk_terms = [
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "fraud company", "scam company", "you are cheater", "you are cheaters",
+        "chor", "dhokebaaz", "dhokha", "dhamki"
+    ]
 
     primary_aspect = best_match_id(
         t, PRIMARY_ASPECT_KEYWORDS, PRIMARY_ASPECT_LABELS, default_id=7
@@ -192,20 +186,30 @@ def analyze_single(review_text: str, sentiment_value) -> dict:
     scored_priority = score_to_priority(priority_score)
     priority = max(rule_priority, scored_priority)
 
-    risk_keywords = ["fraud", "scam", "threat", "harassment", "illegal", "dhokha", "dhamki"]
-    if any_hit(t, risk_keywords):
-        priority = PRIORITY_LABELS.index("critical")
-
     if has_phone or has_email:
         priority = max(priority, PRIORITY_LABELS.index("medium"))
 
-    rule_sentiment = assign_aspect_sentiment(t, global_sentiment, primary_aspect)
+    if any_hit(t, severe_risk_terms):
+        priority = PRIORITY_LABELS.index("critical")
+        emotion = EMOTION_LABELS.index("very_angry")
+        forced_sentiment = 0
+    else:
+        forced_sentiment = None
+
+    rule_sentiment = detect_rule_sentiment(t, primary_aspect)
     final_sentiment, sentiment_source, bert_confidence = hybrid_sentiment(review_text, rule_sentiment)
 
     if strong_negative:
         final_sentiment = 0
 
+    if forced_sentiment is not None:
+        final_sentiment = forced_sentiment
+
     customer_intent = tone_override(t, final_sentiment)
+
+    if any_hit(t, severe_risk_terms):
+        customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
+
     priority = enforce_consistency(final_sentiment, customer_intent, priority, emotion)
 
     return {
@@ -232,8 +236,8 @@ def analyze_single(review_text: str, sentiment_value) -> dict:
         "urgent": is_urgent
     }
 
-def analyze_dataframe(df: pd.DataFrame, text_col="Review", sentiment_col="Sentiment") -> pd.DataFrame:
+def analyze_dataframe(df: pd.DataFrame, text_col="Review") -> pd.DataFrame:
     rows = []
     for _, row in df.iterrows():
-        rows.append(analyze_single(row[text_col], row[sentiment_col]))
+        rows.append(analyze_single(row[text_col]))
     return pd.DataFrame(rows)
