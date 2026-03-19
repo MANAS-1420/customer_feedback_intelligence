@@ -5,8 +5,10 @@ from src.pipeline import analyze_single, analyze_dataframe
 
 st.set_page_config(page_title="Customer Feedback Intelligence System", layout="wide")
 
+
 def pretty_label(x: str) -> str:
     return x.replace("_", " ").title()
+
 
 st.title("Customer Feedback Intelligence System")
 st.caption("Hybrid multilingual analysis using Rule Engine + Pre-trained BERT")
@@ -18,7 +20,7 @@ with tab1:
 
     review_text = st.text_area("Enter customer review")
 
-    if st.button("Analyze"):
+    if st.button("Analyze Review"):
         if review_text.strip():
             result = analyze_single(review_text)
 
@@ -60,77 +62,99 @@ with tab1:
 with tab2:
     st.subheader("Batch CSV Analysis")
     st.write("Required column: `Review`")
+    st.write("Optional extra columns are allowed and will be ignored.")
 
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
 
-        required_cols = ["Review"]
-        missing = [c for c in required_cols if c not in df.columns]
+        st.write("### Uploaded File Preview")
+        st.dataframe(df.head(), use_container_width=True)
 
-        if missing:
-            st.error(f"Missing columns: {missing}")
+        possible_text_cols = ["Review", "review", "text", "Text", "comments", "Comments"]
+
+        text_col = None
+        for col in possible_text_cols:
+            if col in df.columns:
+                text_col = col
+                break
+
+        if text_col is None:
+            st.error("No review column found. Use one of these names: Review, review, text, Text, comments, Comments")
         else:
-            result_df = analyze_dataframe(df)
+            st.success(f"Detected review column: `{text_col}`")
 
-            st.write("### Output Preview")
-            st.dataframe(result_df, use_container_width=True)
+            if st.button("Process CSV"):
+                result_df = analyze_dataframe(df, text_col=text_col)
 
-            st.write("### Charts")
-            col1, col2 = st.columns(2)
+                st.write("### Output Preview")
+                st.dataframe(result_df, use_container_width=True)
 
-            with col1:
-                fig1, ax1 = plt.subplots()
-                result_df["primary_aspect_label"].value_counts().plot(kind="bar", ax=ax1)
-                ax1.set_title("Aspect Distribution")
-                ax1.set_xlabel("Aspect")
-                ax1.set_ylabel("Count")
-                st.pyplot(fig1)
+                total_reviews = len(result_df)
+                critical_count = (result_df["priority_label"] == "critical").sum()
+                high_count = (result_df["priority_label"] == "high").sum()
+                top_aspect = result_df["primary_aspect_label"].value_counts().idxmax()
 
-            with col2:
-                fig2, ax2 = plt.subplots()
-                result_df["priority_label"].value_counts().plot(kind="bar", ax=ax2)
-                ax2.set_title("Priority Distribution")
-                ax2.set_xlabel("Priority")
-                ax2.set_ylabel("Count")
-                st.pyplot(fig2)
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Total Reviews", total_reviews)
+                m2.metric("Critical Issues", critical_count)
+                m3.metric("Top Issue", pretty_label(top_aspect))
 
-            col3, col4 = st.columns(2)
+                st.write("### Charts")
+                col1, col2 = st.columns(2)
 
-            with col3:
-                fig3, ax3 = plt.subplots()
-                result_df["emotion_label"].value_counts().plot(kind="bar", ax=ax3)
-                ax3.set_title("Emotion Distribution")
-                ax3.set_xlabel("Emotion")
-                ax3.set_ylabel("Count")
-                st.pyplot(fig3)
+                with col1:
+                    fig1, ax1 = plt.subplots()
+                    result_df["primary_aspect_label"].value_counts().plot(kind="bar", ax=ax1)
+                    ax1.set_title("Aspect Distribution")
+                    ax1.set_xlabel("Aspect")
+                    ax1.set_ylabel("Count")
+                    plt.xticks(rotation=45, ha="right")
+                    st.pyplot(fig1)
 
-            with col4:
-                fig4, ax4 = plt.subplots()
-                result_df["customer_intent_label"].value_counts().plot(kind="bar", ax=ax4)
-                ax4.set_title("Intent Distribution")
-                ax4.set_xlabel("Intent")
-                ax4.set_ylabel("Count")
-                st.pyplot(fig4)
+                with col2:
+                    fig2, ax2 = plt.subplots()
+                    result_df["priority_label"].value_counts().plot(kind="bar", ax=ax2)
+                    ax2.set_title("Priority Distribution")
+                    ax2.set_xlabel("Priority")
+                    ax2.set_ylabel("Count")
+                    plt.xticks(rotation=45, ha="right")
+                    st.pyplot(fig2)
 
-            critical_count = (result_df["priority_label"] == "critical").sum()
-            high_count = (result_df["priority_label"] == "high").sum()
-            top_aspect = result_df["primary_aspect_label"].value_counts().idxmax()
+                col3, col4 = st.columns(2)
 
-            st.write("### Business Insights")
-            st.write(f"- Total reviews analyzed: **{len(result_df)}**")
-            st.write(f"- Critical issues: **{critical_count}**")
-            st.write(f"- High priority issues: **{high_count}**")
-            st.write(f"- Top aspect: **{pretty_label(top_aspect)}**")
+                with col3:
+                    fig3, ax3 = plt.subplots()
+                    result_df["emotion_label"].value_counts().plot(kind="bar", ax=ax3)
+                    ax3.set_title("Emotion Distribution")
+                    ax3.set_xlabel("Emotion")
+                    ax3.set_ylabel("Count")
+                    plt.xticks(rotation=45, ha="right")
+                    st.pyplot(fig3)
 
-            if critical_count > 0:
-                st.error(f"🚨 {critical_count} critical issues detected in uploaded data.")
+                with col4:
+                    fig4, ax4 = plt.subplots()
+                    result_df["customer_intent_label"].value_counts().plot(kind="bar", ax=ax4)
+                    ax4.set_title("Intent Distribution")
+                    ax4.set_xlabel("Intent")
+                    ax4.set_ylabel("Count")
+                    plt.xticks(rotation=45, ha="right")
+                    st.pyplot(fig4)
 
-            csv_bytes = result_df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download Results CSV",
-                data=csv_bytes,
-                file_name="customer_feedback_output.csv",
-                mime="text/csv"
-            )
+                st.write("### Business Insights")
+                st.write(f"- Total reviews analyzed: **{total_reviews}**")
+                st.write(f"- Critical issues: **{critical_count}**")
+                st.write(f"- High priority issues: **{high_count}**")
+                st.write(f"- Top aspect: **{pretty_label(top_aspect)}**")
+
+                if critical_count > 0:
+                    st.error(f"🚨 {critical_count} critical issues detected in uploaded data.")
+
+                csv_bytes = result_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download Results CSV",
+                    data=csv_bytes,
+                    file_name="customer_feedback_output.csv",
+                    mime="text/csv"
+                )
