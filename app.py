@@ -5,6 +5,9 @@ from src.pipeline import analyze_single, analyze_dataframe
 
 st.set_page_config(page_title="Customer Feedback Intelligence System", layout="wide")
 
+def pretty_label(x: str) -> str:
+    return x.replace("_", " ").title()
+
 st.title("Customer Feedback Intelligence System")
 st.caption("Hybrid multilingual analysis using Rule Engine + Pre-trained BERT")
 
@@ -14,25 +17,20 @@ with tab1:
     st.subheader("Single Review Analysis")
 
     review_text = st.text_area("Enter customer review")
-    sentiment_input = st.selectbox(
-        "Select sentiment",
-        options=[0, 1, 2],
-        format_func=lambda x: {0: "Negative", 1: "Neutral", 2: "Positive"}[x]
-    )
 
     if st.button("Analyze"):
         if review_text.strip():
-            result = analyze_single(review_text, sentiment_input)
+            result = analyze_single(review_text)
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("Aspect", result["primary_aspect_label"])
-            c2.metric("Emotion", result["emotion_label"])
-            c3.metric("Priority", result["priority_label"])
+            c1.metric("Aspect", pretty_label(result["primary_aspect_label"]))
+            c2.metric("Emotion", pretty_label(result["emotion_label"]))
+            c3.metric("Priority", pretty_label(result["priority_label"]))
 
             c4, c5, c6 = st.columns(3)
-            c4.metric("Intent", result["customer_intent_label"])
-            c5.metric("Aspect Sentiment", result["aspect_sentiment_label"])
-            c6.metric("Sentiment", result["sentiment_label"])
+            c4.metric("Intent", pretty_label(result["customer_intent_label"]))
+            c5.metric("Aspect Sentiment", pretty_label(result["aspect_sentiment_label"]))
+            c6.metric("Sentiment", pretty_label(result["sentiment_label"]))
 
             st.write("### Hybrid Details")
             st.write(f"**Sentiment Source:** {result['sentiment_source']}")
@@ -61,14 +59,14 @@ with tab1:
 
 with tab2:
     st.subheader("Batch CSV Analysis")
-    st.write("Required columns: `Review`, `Sentiment`")
+    st.write("Required column: `Review`")
 
     uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
 
-        required_cols = ["Review", "Sentiment"]
+        required_cols = ["Review"]
         missing = [c for c in required_cols if c not in df.columns]
 
         if missing:
@@ -124,7 +122,7 @@ with tab2:
             st.write(f"- Total reviews analyzed: **{len(result_df)}**")
             st.write(f"- Critical issues: **{critical_count}**")
             st.write(f"- High priority issues: **{high_count}**")
-            st.write(f"- Top aspect: **{top_aspect}**")
+            st.write(f"- Top aspect: **{pretty_label(top_aspect)}**")
 
             if critical_count > 0:
                 st.error(f"🚨 {critical_count} critical issues detected in uploaded data.")
