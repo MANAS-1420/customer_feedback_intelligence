@@ -7,168 +7,12 @@ from src.pipeline import analyze_single, analyze_dataframe
 st.set_page_config(
     page_title="Customer Feedback Intelligence System",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-st.markdown("""
-<style>
-    .stApp {
-        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-    }
-
-    .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2rem;
-        max-width: 1300px;
-    }
-
-    .hero-card {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
-        color: white;
-        padding: 28px 30px;
-        border-radius: 22px;
-        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.22);
-        margin-bottom: 1rem;
-    }
-
-    .hero-title {
-        font-size: 2.1rem;
-        font-weight: 800;
-        line-height: 1.1;
-        margin-bottom: 0.35rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1rem;
-        opacity: 0.95;
-    }
-
-    .section-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #111827;
-        margin-top: 0.5rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .soft-card {
-        background: rgba(255,255,255,0.92);
-        border: 1px solid rgba(226,232,240,0.9);
-        border-radius: 18px;
-        padding: 18px 18px 14px 18px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-        margin-bottom: 1rem;
-    }
-
-    .mini-note {
-        color: #64748b;
-        font-size: 0.93rem;
-        margin-top: -0.15rem;
-        margin-bottom: 0.85rem;
-    }
-
-    .info-chip-wrap {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 8px;
-        margin-bottom: 8px;
-    }
-
-    .info-chip {
-        background: #eef2ff;
-        color: #3730a3;
-        border: 1px solid #c7d2fe;
-        padding: 7px 12px;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .priority-badge {
-        display: inline-block;
-        padding: 8px 14px;
-        border-radius: 999px;
-        color: white;
-        font-size: 0.9rem;
-        font-weight: 800;
-        letter-spacing: 0.3px;
-        margin-top: 2px;
-        margin-bottom: 8px;
-    }
-
-    .priority-low {
-        background: #10b981;
-    }
-
-    .priority-medium {
-        background: #f59e0b;
-    }
-
-    .priority-high {
-        background: #f97316;
-    }
-
-    .priority-critical {
-        background: #ef4444;
-    }
-
-    .reason-box {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-left: 5px solid #6366f1;
-        border-radius: 14px;
-        padding: 14px 16px;
-        color: #0f172a;
-        margin-top: 10px;
-        margin-bottom: 10px;
-    }
-
-    .metric-caption {
-        color: #64748b;
-        font-size: 0.85rem;
-        margin-top: -3px;
-    }
-
-    div.stButton > button {
-        background: linear-gradient(90deg, #4f46e5, #9333ea);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.65rem 1.2rem;
-        font-weight: 700;
-        height: 46px;
-        box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
-    }
-
-    div.stButton > button:hover {
-        filter: brightness(1.03);
-    }
-
-    div[data-testid="stFileUploader"] {
-        background: #ffffff;
-        border-radius: 14px;
-        padding: 4px;
-    }
-
-    div[data-testid="stMetric"] {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 16px;
-        padding: 10px 12px;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
-    }
-
-    .footer-note {
-        color: #64748b;
-        font-size: 0.85rem;
-        text-align: center;
-        margin-top: 18px;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
+# -----------------------------
+# HELPERS
+# -----------------------------
 def pretty_label(x: str) -> str:
     return str(x).replace("_", " ").title()
 
@@ -201,40 +45,257 @@ def detect_review_column(columns):
 
 
 def priority_badge(priority_label: str) -> str:
-    priority_label = str(priority_label).lower()
-    cls = f"priority-{priority_label}"
-    text = pretty_label(priority_label)
-    return f'<span class="priority-badge {cls}">{text}</span>'
+    p = str(priority_label).lower()
+    return f'<span class="priority-badge priority-{p}">{pretty_label(priority_label)}</span>'
 
 
 def build_reason_text(result: dict) -> str:
-    reason_parts = []
+    parts = []
 
     if result.get("matched_keywords"):
-        reason_parts.append(f"Matched keywords: {result['matched_keywords']}")
+        parts.append(f"Matched keywords: {result['matched_keywords']}")
 
     if result.get("urgent"):
-        reason_parts.append("Urgency signal detected")
+        parts.append("Urgency signal detected")
 
     if result.get("strong_negative"):
-        reason_parts.append("Strong negative phrase detected")
+        parts.append("Strong negative phrase detected")
 
     if result.get("has_phone") or result.get("has_email"):
-        signals = []
+        contact_signals = []
         if result.get("has_phone"):
-            signals.append("phone number")
+            contact_signals.append("phone")
         if result.get("has_email"):
-            signals.append("email")
-        reason_parts.append("Contact signal detected: " + ", ".join(signals))
+            contact_signals.append("email")
+        parts.append("Contact signal detected: " + ", ".join(contact_signals))
 
-    reason_parts.append(
+    parts.append(
         f"Sentiment source: {result.get('sentiment_source', 'N/A')} "
         f"(confidence: {result.get('bert_confidence', 0)})"
     )
 
-    return " | ".join(reason_parts)
+    return " | ".join(parts)
 
 
+# -----------------------------
+# SIDEBAR
+# -----------------------------
+st.sidebar.markdown("## ⚙️ Settings")
+theme = st.sidebar.selectbox("🎨 Select Theme", ["Light", "Dark"])
+st.sidebar.markdown("Use Light or Dark mode for better viewing.")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📌 Usage")
+st.sidebar.markdown("- **Single Review** → analyze one review")
+st.sidebar.markdown("- **Batch Analysis** → upload CSV / Excel")
+st.sidebar.markdown("- Supported upload formats: **CSV, XLSX, XLS**")
+
+# -----------------------------
+# THEME CSS
+# -----------------------------
+if theme == "Light":
+    bg = "#f5f7fb"
+    card_bg = "rgba(255,255,255,0.96)"
+    text = "#111827"
+    subtext = "#6b7280"
+    border = "#e5e7eb"
+    input_bg = "#ffffff"
+    textarea_bg = "#ffffff"
+    hero_shadow = "0 18px 40px rgba(79, 70, 229, 0.22)"
+    metric_bg = "#ffffff"
+else:
+    bg = "#0f172a"
+    card_bg = "rgba(17,24,39,0.96)"
+    text = "#e5e7eb"
+    subtext = "#94a3b8"
+    border = "#334155"
+    input_bg = "#111827"
+    textarea_bg = "#020617"
+    hero_shadow = "0 18px 40px rgba(0, 0, 0, 0.35)"
+    metric_bg = "#111827"
+
+st.markdown(f"""
+<style>
+    .stApp {{
+        background: {bg};
+        color: {text};
+    }}
+
+    .block-container {{
+        padding-top: 1.5rem;
+        padding-bottom: 2rem;
+        max-width: 1300px;
+    }}
+
+    .hero-card {{
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
+        color: white;
+        padding: 28px 30px;
+        border-radius: 22px;
+        box-shadow: {hero_shadow};
+        margin-bottom: 1rem;
+    }}
+
+    .hero-title {{
+        font-size: 2.2rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 0.35rem;
+    }}
+
+    .hero-subtitle {{
+        font-size: 1rem;
+        opacity: 0.95;
+    }}
+
+    .section-title {{
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: {text};
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
+    }}
+
+    .soft-card {{
+        background: {card_bg};
+        border: 1px solid {border};
+        border-radius: 18px;
+        padding: 18px 18px 14px 18px;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        margin-bottom: 1rem;
+    }}
+
+    .mini-note {{
+        color: {subtext};
+        font-size: 0.93rem;
+        margin-top: -0.15rem;
+        margin-bottom: 0.85rem;
+    }}
+
+    .info-chip-wrap {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }}
+
+    .info-chip {{
+        background: #eef2ff;
+        color: #3730a3;
+        border: 1px solid #c7d2fe;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }}
+
+    .priority-badge {{
+        display: inline-block;
+        padding: 8px 14px;
+        border-radius: 999px;
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        margin-top: 2px;
+        margin-bottom: 8px;
+    }}
+
+    .priority-low {{
+        background: #10b981;
+    }}
+
+    .priority-medium {{
+        background: #f59e0b;
+    }}
+
+    .priority-high {{
+        background: #f97316;
+    }}
+
+    .priority-critical {{
+        background: #ef4444;
+    }}
+
+    .reason-box {{
+        background: {input_bg};
+        border: 1px solid {border};
+        border-left: 5px solid #6366f1;
+        border-radius: 14px;
+        padding: 14px 16px;
+        color: {text};
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }}
+
+    div.stButton > button {{
+        background: linear-gradient(90deg, #4f46e5, #9333ea);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.65rem 1.2rem;
+        font-weight: 700;
+        height: 46px;
+        box-shadow: 0 10px 20px rgba(79, 70, 229, 0.18);
+    }}
+
+    div.stButton > button:hover {{
+        filter: brightness(1.03);
+    }}
+
+    div[data-testid="stMetric"] {{
+        background: {metric_bg};
+        border: 1px solid {border};
+        border-radius: 16px;
+        padding: 10px 12px;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    }}
+
+    div[data-testid="stFileUploader"] {{
+        background: {card_bg};
+        border-radius: 14px;
+        padding: 4px;
+    }}
+
+    button[data-baseweb="tab"] {{
+        color: {text} !important;
+        font-weight: 700;
+    }}
+
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        color: #4f46e5 !important;
+        border-bottom: 3px solid #4f46e5 !important;
+    }}
+
+    h1, h2, h3, h4, h5, h6, p, label, span, div {{
+        color: {text};
+    }}
+
+    textarea {{
+        border-radius: 14px !important;
+        border: 1px solid {border} !important;
+        padding: 12px !important;
+        background-color: {textarea_bg} !important;
+        color: {text} !important;
+    }}
+
+    textarea:focus {{
+        border: 1px solid #6366f1 !important;
+        box-shadow: 0 0 0 1px #6366f1 !important;
+    }}
+
+    .footer-note {{
+        color: {subtext};
+        font-size: 0.85rem;
+        text-align: center;
+        margin-top: 18px;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# HEADER
+# -----------------------------
 st.markdown("""
 <div class="hero-card">
     <div class="hero-title">Customer Feedback Intelligence System</div>
@@ -244,21 +305,30 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Single Review Analysis", "Batch CSV / Excel Analysis"])
+st.info("👉 Use **Single Review Analysis** for one review or switch to **Batch CSV / Excel Analysis** to upload files.")
 
+tab1, tab2 = st.tabs(["🧠 Single Review Analysis", "📊 Batch CSV / Excel Analysis"])
+
+# -----------------------------
+# TAB 1 - SINGLE REVIEW
+# -----------------------------
 with tab1:
     st.markdown('<div class="section-title">Analyze a single customer review</div>', unsafe_allow_html=True)
-    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
+    st.markdown('<div class="mini-note">Tip: You can enter English, Hindi, or Hinglish reviews.</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="soft-card">', unsafe_allow_html=True)
     review_text = st.text_area(
         "Enter customer review",
         height=160,
         placeholder="Example: You guys are cheaters, support never replied and I still have not received my refund..."
     )
-
     st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.button("Analyze Review", use_container_width=False):
+    btn_col1, btn_col2, btn_col3 = st.columns([1, 1.4, 1])
+    with btn_col2:
+        analyze_clicked = st.button("Analyze Review", use_container_width=True)
+
+    if analyze_clicked:
         if review_text.strip():
             start_time = time.time()
 
@@ -325,6 +395,9 @@ with tab1:
         else:
             st.warning("Please enter review text.")
 
+# -----------------------------
+# TAB 2 - BATCH
+# -----------------------------
 with tab2:
     st.markdown('<div class="section-title">Batch analysis for CSV / Excel files</div>', unsafe_allow_html=True)
     st.markdown('<div class="mini-note">Supported file types: CSV, XLSX, XLS</div>', unsafe_allow_html=True)
@@ -484,4 +557,7 @@ with tab2:
         except Exception as e:
             st.error(f"Error while processing file: {e}")
 
-st.markdown('<div class="footer-note">Built with Streamlit • Hybrid NLP • Multilingual Review Intelligence</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="footer-note">Built with Streamlit • Hybrid NLP • Multilingual Review Intelligence</div>',
+    unsafe_allow_html=True
+)
