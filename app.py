@@ -141,10 +141,6 @@ st.markdown(f"""
         background: {sidebar_bg} !important;
     }}
 
-    section[data-testid="stSidebar"] * {{
-        color: {sidebar_text} !important;
-    }}
-
     section[data-testid="stSidebar"] .block-container {{
         padding-top: 1rem !important;
     }}
