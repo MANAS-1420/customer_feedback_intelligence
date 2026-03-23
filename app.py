@@ -1,7 +1,8 @@
+import time
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from src.pipeline import analyze_single, analyze_dataframe
+from src.pipeline import analyze_single, analyze_row
 
 st.set_page_config(page_title="Customer Feedback Intelligence System", layout="wide")
 
@@ -10,10 +11,37 @@ def pretty_label(x: str) -> str:
     return x.replace("_", " ").title()
 
 
+def detect_review_column(columns):
+    possible_text_cols = [
+        "Review", "review", "Reviews", "reviews",
+        "Comment", "comment", "Comments", "comments",
+        "Feedback", "feedback",
+        "Text", "text",
+        "Message", "message",
+        "Complaint", "complaint",
+        "Customer Review", "customer review",
+        "Customer_Review", "customer_review"
+    ]
+
+    for col in possible_text_cols:
+        if col in columns:
+            return col
+
+    lowered = {c.lower(): c for c in columns}
+    keywords = ["review", "reviews", "comment", "comments", "feedback", "text", "message", "complaint"]
+
+    for low_col, original_col in lowered.items():
+        for kw in keywords:
+            if kw in low_col:
+                return original_col
+
+    return None
+
+
 st.title("Customer Feedback Intelligence System")
 st.caption("Hybrid multilingual analysis using Rule Engine + Pre-trained BERT")
 
-tab1, tab2 = st.tabs(["Single Review Analysis", "Batch CSV Analysis"])
+tab1, tab2 = st.tabs(["Single Review Analysis", "Batch CSV / Excel Analysis"])
 
 with tab1:
     st.subheader("Single Review Analysis")
@@ -22,7 +50,12 @@ with tab1:
 
     if st.button("Analyze Review"):
         if review_text.strip():
-            result = analyze_single(review_text)
+            start_time = time.time()
+
+            with st.spinner("Analyzing review..."):
+                result = analyze_single(review_text)
+
+            elapsed_time = round(time.time() - start_time, 3)
 
             c1, c2, c3 = st.columns(3)
             c1.metric("Aspect", pretty_label(result["primary_aspect_label"]))
@@ -39,6 +72,7 @@ with tab1:
             st.write(f"**BERT Confidence:** {result['bert_confidence']}")
             st.write(f"**Priority Score:** {result['priority_score']}")
             st.write(f"**Matched Keywords:** {result['matched_keywords'] or 'No major keyword hit'}")
+            st.write(f"**Processing Time:** {elapsed_time} seconds")
 
             st.write("**Regex Flags:**")
             st.write(
@@ -60,46 +94,83 @@ with tab1:
             st.warning("Please enter review text.")
 
 with tab2:
-    st.subheader("Batch CSV Analysis")
-    st.write("Required column: `Review`")
-    st.write("Optional extra columns are allowed and will be ignored.")
+    st.subheader("Batch CSV / Excel Analysis")
+    st.write("Supported file types: `CSV`, `XLSX`, `XLS`")
 
-    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
+    uploaded_file = st.file_uploader(
+        "Upload CSV or Excel file",
+        type=["csv", "xlsx", "xls"]
+    )
 
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        try:
+            file_name = uploaded_file.name
 
-        st.write("### Uploaded File Preview")
-        st.dataframe(df.head(), use_container_width=True)
+            if file_name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            elif file_name.endswith(".xlsx") or file_name.endswith(".xls"):
+                df = pd.read_excel(uploaded_file)
+            else:
+                st.error("Unsupported file format.")
+                st.stop()
 
-        possible_text_cols = ["Review", "review", "text", "Text", "comments", "Comments"]
+            st.success(f"Loaded file: {file_name}")
 
-        text_col = None
-        for col in possible_text_cols:
-            if col in df.columns:
-                text_col = col
-                break
+            st.write("### Uploaded File Preview")
+            st.dataframe(df.head(), use_container_width=True)
 
-        if text_col is None:
-            st.error("No review column found. Use one of these names: Review, review, text, Text, comments, Comments")
-        else:
-            st.success(f"Detected review column: `{text_col}`")
+            auto_detected_col = detect_review_column(df.columns.tolist())
 
-            if st.button("Process CSV"):
-                result_df = analyze_dataframe(df, text_col=text_col)
+            if auto_detected_col:
+                st.info(f"Auto-detected review column: `{auto_detected_col}`")
+            else:
+                st.warning("Could not auto-detect review column. Please select manually.")
+
+            selected_col = st.selectbox(
+                "Select the review/comment column",
+                options=df.columns.tolist(),
+                index=df.columns.tolist().index(auto_detected_col) if auto_detected_col in df.columns.tolist() else 0
+            )
+
+            if st.button("Process File"):
+                start_time = time.time()
+
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+
+                total_rows = len(df)
+                results = []
+
+                for idx, (_, row) in enumerate(df.iterrows(), start=1):
+                    results.append(analyze_row(row[selected_col], use_bert=False))
+
+                    # update progress every 25 rows or at end
+                    if idx % 25 == 0 or idx == total_rows:
+                        progress = idx / total_rows
+                        progress_bar.progress(progress)
+                        status_text.write(f"Processing row {idx} of {total_rows}...")
+
+                result_df = pd.DataFrame(results)
+
+                elapsed_time = round(time.time() - start_time, 2)
+                progress_bar.progress(1.0)
+                status_text.write(f"✅ Processing complete in {elapsed_time} seconds.")
 
                 st.write("### Output Preview")
-                st.dataframe(result_df, use_container_width=True)
+                st.dataframe(result_df.head(100), use_container_width=True)
 
                 total_reviews = len(result_df)
                 critical_count = (result_df["priority_label"] == "critical").sum()
                 high_count = (result_df["priority_label"] == "high").sum()
                 top_aspect = result_df["primary_aspect_label"].value_counts().idxmax()
 
-                m1, m2, m3 = st.columns(3)
+                m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Reviews", total_reviews)
                 m2.metric("Critical Issues", critical_count)
-                m3.metric("Top Issue", pretty_label(top_aspect))
+                m3.metric("High Priority", high_count)
+                m4.metric("Processing Time", f"{elapsed_time}s")
+
+                st.write(f"**Top Issue:** {pretty_label(top_aspect)}")
 
                 st.write("### Charts")
                 col1, col2 = st.columns(2)
@@ -147,6 +218,7 @@ with tab2:
                 st.write(f"- Critical issues: **{critical_count}**")
                 st.write(f"- High priority issues: **{high_count}**")
                 st.write(f"- Top aspect: **{pretty_label(top_aspect)}**")
+                st.write(f"- Processing completed in: **{elapsed_time} seconds**")
 
                 if critical_count > 0:
                     st.error(f"🚨 {critical_count} critical issues detected in uploaded data.")
@@ -158,3 +230,6 @@ with tab2:
                     file_name="customer_feedback_output.csv",
                     mime="text/csv"
                 )
+
+        except Exception as e:
+            st.error(f"Error while processing file: {e}")
