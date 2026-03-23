@@ -90,7 +90,7 @@ def action_recommendation(priority_label: str) -> str:
 
 def detect_mixed_feedback(text: str) -> bool:
     t = str(text).lower()
-    markers = [" but ", " however ", " although ", " though ", "lekin", "par", "but still"]
+    markers = [" but ", " however ", " although ", " though ", "lekin", " par ", "but still"]
     return any(m in t for m in markers)
 
 
@@ -110,7 +110,6 @@ def batch_summary(result_df: pd.DataFrame) -> str:
     top_aspect = pretty_label(result_df["primary_aspect_label"].value_counts().idxmax())
     top_intent = pretty_label(result_df["customer_intent_label"].value_counts().idxmax())
     top_emotion = pretty_label(result_df["emotion_label"].value_counts().idxmax())
-
     negative_pct = round((result_df["sentiment_label"] == "negative").mean() * 100, 1)
     critical_pct = round((result_df["priority_label"] == "critical").mean() * 100, 1)
 
@@ -162,9 +161,9 @@ if theme == "Light":
     sidebar_bg = "#ffffff"
     sidebar_text = "#111827"
     uploader_bg = "#ffffff"
-    info_bg = "#e8f1ff"
     muted_bg = "#f8fafc"
     select_bg = "#ffffff"
+    option_hover_bg = "#f3f4f6"
 else:
     bg = "#0f172a"
     text = "#e5e7eb"
@@ -176,9 +175,9 @@ else:
     sidebar_bg = "#111827"
     sidebar_text = "#e5e7eb"
     uploader_bg = "#111827"
-    info_bg = "#172554"
     muted_bg = "#0b1220"
     select_bg = "#1f2937"
+    option_hover_bg = "#374151"
 
 # -----------------------------
 # CSS
@@ -214,7 +213,6 @@ st.markdown(f"""
 
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3,
@@ -223,26 +221,39 @@ st.markdown(f"""
         color: {sidebar_text} !important;
     }}
 
-    section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {{
+    /* Selectbox fix */
+    section[data-testid="stSidebar"] div[data-baseweb="select"] {{
+        background: {select_bg} !important;
+        border-radius: 10px !important;
+        color: {sidebar_text} !important;
+    }}
+
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div {{
         background: {select_bg} !important;
         color: {sidebar_text} !important;
-        border-radius: 10px !important;
     }}
 
-    section[data-testid="stSidebar"] .stSelectbox div {{
+    section[data-testid="stSidebar"] div[data-baseweb="select"] input {{
         color: {sidebar_text} !important;
+        caret-color: {sidebar_text} !important;
     }}
 
-    div[data-baseweb="select"] span {{
+    section[data-testid="stSidebar"] div[data-baseweb="select"] span {{
         color: {sidebar_text} !important;
     }}
 
     div[role="listbox"] {{
         background: {select_bg} !important;
-        color: {sidebar_text} !important;
+        border: 1px solid {border} !important;
     }}
 
     div[role="option"] {{
+        background: {select_bg} !important;
+        color: {sidebar_text} !important;
+    }}
+
+    div[role="option"]:hover {{
+        background: {option_hover_bg} !important;
         color: {sidebar_text} !important;
     }}
 
@@ -269,14 +280,15 @@ st.markdown(f"""
         font-weight: 800;
         line-height: 1.1;
         margin-bottom: 0.35rem;
+        color: white !important;
     }}
 
     .hero-subtitle {{
         font-size: 1rem;
         opacity: 0.96;
+        color: white !important;
     }}
 
-    /* General cards */
     .section-title {{
         font-size: 1.2rem;
         font-weight: 700;
@@ -347,7 +359,6 @@ st.markdown(f"""
         margin-bottom: 10px;
     }}
 
-    /* Buttons */
     div.stButton > button {{
         background: linear-gradient(90deg, #4f46e5, #9333ea);
         color: white !important;
@@ -363,7 +374,6 @@ st.markdown(f"""
         filter: brightness(1.03);
     }}
 
-    /* Metrics */
     div[data-testid="stMetric"] {{
         background: {metric_bg};
         border: 1px solid {border};
@@ -372,14 +382,12 @@ st.markdown(f"""
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
     }}
 
-    /* File uploader */
     div[data-testid="stFileUploader"] {{
         background: {uploader_bg};
         border-radius: 14px;
         padding: 4px;
     }}
 
-    /* Tabs */
     button[data-baseweb="tab"] {{
         color: {text} !important;
         font-weight: 700;
@@ -390,7 +398,6 @@ st.markdown(f"""
         border-bottom: 3px solid #4f46e5 !important;
     }}
 
-    /* Textareas and text */
     h1, h2, h3, h4, h5, h6, p, label, span, div {{
         color: {text};
     }}
@@ -401,11 +408,29 @@ st.markdown(f"""
         padding: 12px !important;
         background-color: {textarea_bg} !important;
         color: {text} !important;
+        caret-color: {text} !important;
+    }}
+
+    textarea::placeholder {{
+        color: {subtext} !important;
+        opacity: 1 !important;
     }}
 
     textarea:focus {{
         border: 1px solid #6366f1 !important;
         box-shadow: 0 0 0 1px #6366f1 !important;
+        color: {text} !important;
+        caret-color: {text} !important;
+    }}
+
+    input {{
+        color: {text} !important;
+        caret-color: {text} !important;
+    }}
+
+    input::placeholder {{
+        color: {subtext} !important;
+        opacity: 1 !important;
     }}
 
     .footer-note {{
