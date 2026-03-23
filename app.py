@@ -2,7 +2,7 @@ import time
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from src.pipeline import analyze_single, analyze_row
+from src.pipeline import analyze_single, analyze_dataframe
 
 st.set_page_config(page_title="Customer Feedback Intelligence System", layout="wide")
 
@@ -135,25 +135,14 @@ with tab2:
             if st.button("Process File"):
                 start_time = time.time()
 
-                progress_bar = st.progress(0)
+                progress_bar = st.progress(10)
                 status_text = st.empty()
+                status_text.write("Processing file...")
 
-                total_rows = len(df)
-                results = []
+                result_df = analyze_dataframe(df, text_col=selected_col)
 
-                for idx, (_, row) in enumerate(df.iterrows(), start=1):
-                    results.append(analyze_row(row[selected_col], use_bert=False))
-
-                    # update progress every 25 rows or at end
-                    if idx % 25 == 0 or idx == total_rows:
-                        progress = idx / total_rows
-                        progress_bar.progress(progress)
-                        status_text.write(f"Processing row {idx} of {total_rows}...")
-
-                result_df = pd.DataFrame(results)
-
+                progress_bar.progress(100)
                 elapsed_time = round(time.time() - start_time, 2)
-                progress_bar.progress(1.0)
                 status_text.write(f"✅ Processing complete in {elapsed_time} seconds.")
 
                 st.write("### Output Preview")
