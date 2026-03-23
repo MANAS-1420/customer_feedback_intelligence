@@ -62,12 +62,12 @@ def build_reason_text(result: dict) -> str:
         parts.append("Strong negative phrase detected")
 
     if result.get("has_phone") or result.get("has_email"):
-        contact_signals = []
+        signals = []
         if result.get("has_phone"):
-            contact_signals.append("phone")
+            signals.append("phone")
         if result.get("has_email"):
-            contact_signals.append("email")
-        parts.append("Contact signal detected: " + ", ".join(contact_signals))
+            signals.append("email")
+        parts.append("Contact signal detected: " + ", ".join(signals))
 
     parts.append(
         f"Sentiment source: {result.get('sentiment_source', 'N/A')} "
@@ -78,41 +78,44 @@ def build_reason_text(result: dict) -> str:
 
 
 # -----------------------------
-# SIDEBAR
+# THEME
 # -----------------------------
 st.sidebar.markdown("## ⚙️ Settings")
 theme = st.sidebar.selectbox("🎨 Select Theme", ["Light", "Dark"])
 st.sidebar.markdown("Use Light or Dark mode for better viewing.")
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📌 Usage")
+st.sidebar.markdown("## 📌 Usage")
 st.sidebar.markdown("- **Single Review** → analyze one review")
 st.sidebar.markdown("- **Batch Analysis** → upload CSV / Excel")
-st.sidebar.markdown("- Supported upload formats: **CSV, XLSX, XLS**")
+st.sidebar.markdown("- Supported formats: **CSV, XLSX, XLS**")
 
-# -----------------------------
-# THEME CSS
-# -----------------------------
 if theme == "Light":
     bg = "#f5f7fb"
-    card_bg = "rgba(255,255,255,0.96)"
     text = "#111827"
     subtext = "#6b7280"
+    card_bg = "rgba(255,255,255,0.97)"
     border = "#e5e7eb"
-    input_bg = "#ffffff"
     textarea_bg = "#ffffff"
-    hero_shadow = "0 18px 40px rgba(79, 70, 229, 0.22)"
     metric_bg = "#ffffff"
+    sidebar_bg = "#ffffff"
+    sidebar_text = "#111827"
+    uploader_bg = "#ffffff"
+    info_bg = "#e8f1ff"
 else:
     bg = "#0f172a"
-    card_bg = "rgba(17,24,39,0.96)"
     text = "#e5e7eb"
     subtext = "#94a3b8"
+    card_bg = "rgba(17,24,39,0.96)"
     border = "#334155"
-    input_bg = "#111827"
     textarea_bg = "#020617"
-    hero_shadow = "0 18px 40px rgba(0, 0, 0, 0.35)"
     metric_bg = "#111827"
+    sidebar_bg = "#111827"
+    sidebar_text = "#e5e7eb"
+    uploader_bg = "#111827"
 
+# -----------------------------
+# CSS
+# -----------------------------
 st.markdown(f"""
 <style>
     .stApp {{
@@ -121,9 +124,42 @@ st.markdown(f"""
     }}
 
     .block-container {{
-        padding-top: 1.5rem;
+        padding-top: 1.4rem;
         padding-bottom: 2rem;
         max-width: 1300px;
+    }}
+
+    /* Sidebar fix */
+    section[data-testid="stSidebar"] {{
+        min-width: 290px !important;
+        max-width: 290px !important;
+        background: {sidebar_bg} !important;
+        overflow-y: auto !important;
+    }}
+
+    section[data-testid="stSidebar"] > div {{
+        background: {sidebar_bg} !important;
+    }}
+
+    section[data-testid="stSidebar"] * {{
+        color: {sidebar_text} !important;
+    }}
+
+    section[data-testid="stSidebar"] .block-container {{
+        padding-top: 1rem !important;
+    }}
+
+    section[data-testid="stSidebar"] .stSelectbox > div > div {{
+        background: {"#f8fafc" if theme == "Light" else "#1f2937"} !important;
+        border-radius: 10px !important;
+    }}
+
+    button[title="Collapse sidebar"] {{
+        color: {sidebar_text} !important;
+    }}
+
+    [data-testid="collapsedControl"] {{
+        color: {sidebar_text} !important;
     }}
 
     .hero-card {{
@@ -131,7 +167,7 @@ st.markdown(f"""
         color: white;
         padding: 28px 30px;
         border-radius: 22px;
-        box-shadow: {hero_shadow};
+        box-shadow: 0 18px 40px rgba(79, 70, 229, 0.22);
         margin-bottom: 1rem;
     }}
 
@@ -144,7 +180,7 @@ st.markdown(f"""
 
     .hero-subtitle {{
         font-size: 1rem;
-        opacity: 0.95;
+        opacity: 0.96;
     }}
 
     .section-title {{
@@ -181,7 +217,7 @@ st.markdown(f"""
 
     .info-chip {{
         background: #eef2ff;
-        color: #3730a3;
+        color: #3730a3 !important;
         border: 1px solid #c7d2fe;
         padding: 7px 12px;
         border-radius: 999px;
@@ -193,7 +229,7 @@ st.markdown(f"""
         display: inline-block;
         padding: 8px 14px;
         border-radius: 999px;
-        color: white;
+        color: white !important;
         font-size: 0.9rem;
         font-weight: 800;
         letter-spacing: 0.3px;
@@ -218,7 +254,7 @@ st.markdown(f"""
     }}
 
     .reason-box {{
-        background: {input_bg};
+        background: {"#f8fafc" if theme == "Light" else "#0b1220"};
         border: 1px solid {border};
         border-left: 5px solid #6366f1;
         border-radius: 14px;
@@ -230,7 +266,7 @@ st.markdown(f"""
 
     div.stButton > button {{
         background: linear-gradient(90deg, #4f46e5, #9333ea);
-        color: white;
+        color: white !important;
         border: none;
         border-radius: 12px;
         padding: 0.65rem 1.2rem;
@@ -252,7 +288,7 @@ st.markdown(f"""
     }}
 
     div[data-testid="stFileUploader"] {{
-        background: {card_bg};
+        background: {uploader_bg};
         border-radius: 14px;
         padding: 4px;
     }}
@@ -310,7 +346,7 @@ st.info("👉 Use **Single Review Analysis** for one review or switch to **Batch
 tab1, tab2 = st.tabs(["🧠 Single Review Analysis", "📊 Batch CSV / Excel Analysis"])
 
 # -----------------------------
-# TAB 1 - SINGLE REVIEW
+# SINGLE REVIEW
 # -----------------------------
 with tab1:
     st.markdown('<div class="section-title">Analyze a single customer review</div>', unsafe_allow_html=True)
@@ -324,8 +360,8 @@ with tab1:
     )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    btn_col1, btn_col2, btn_col3 = st.columns([1, 1.4, 1])
-    with btn_col2:
+    b1, b2, b3 = st.columns([1, 1.4, 1])
+    with b2:
         analyze_clicked = st.button("Analyze Review", use_container_width=True)
 
     if analyze_clicked:
@@ -362,7 +398,7 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            chip_html = f"""
+            chips = f"""
             <div class="info-chip-wrap">
                 <span class="info-chip">Sentiment Source: {result['sentiment_source']}</span>
                 <span class="info-chip">BERT Confidence: {result['bert_confidence']}</span>
@@ -370,7 +406,7 @@ with tab1:
                 <span class="info-chip">Processing Time: {elapsed_time}s</span>
             </div>
             """
-            st.markdown(chip_html, unsafe_allow_html=True)
+            st.markdown(chips, unsafe_allow_html=True)
 
             st.markdown(
                 f"""
@@ -396,7 +432,7 @@ with tab1:
             st.warning("Please enter review text.")
 
 # -----------------------------
-# TAB 2 - BATCH
+# BATCH ANALYSIS
 # -----------------------------
 with tab2:
     st.markdown('<div class="section-title">Batch analysis for CSV / Excel files</div>', unsafe_allow_html=True)
