@@ -40,6 +40,7 @@ POSITIVE_ASPECT_ALLOW = {
     PRIMARY_ASPECT_LABELS.index("product_quality"): True
 }
 
+
 def detect_rule_sentiment(text: str, aspect: int) -> int:
     if any_hit(text, ASPECT_SENT_NEG_KW):
         return 0
@@ -53,11 +54,13 @@ def detect_rule_sentiment(text: str, aspect: int) -> int:
         return 0
     return 1
 
+
 def hybrid_sentiment(text: str, rule_sentiment: int):
     bert_pred, confidence = bert_sentiment(text)
     if confidence > 0.75:
         return bert_pred, "BERT", confidence
     return rule_sentiment, "RULE", confidence
+
 
 def tone_override(row_text: str, sentiment: int) -> int:
     complaint_id = CUSTOMER_INTENT_LABELS.index("complaint")
@@ -83,6 +86,7 @@ def tone_override(row_text: str, sentiment: int) -> int:
         return pos_tone_id
     return neu_tone_id
 
+
 def calculate_priority_score(text, has_urgent, strong_negative):
     score = 0
 
@@ -106,6 +110,7 @@ def calculate_priority_score(text, has_urgent, strong_negative):
 
     return score
 
+
 def score_to_priority(score):
     if score >= 7:
         return PRIORITY_LABELS.index("critical")
@@ -115,6 +120,7 @@ def score_to_priority(score):
         return PRIORITY_LABELS.index("medium")
     else:
         return PRIORITY_LABELS.index("low")
+
 
 def enforce_consistency(sentiment, intent, priority, emotion):
     low = PRIORITY_LABELS.index("low")
@@ -140,6 +146,7 @@ def enforce_consistency(sentiment, intent, priority, emotion):
 
     return priority
 
+
 def collect_matches(text: str) -> str:
     all_kw = []
     for kw_list in [
@@ -152,7 +159,8 @@ def collect_matches(text: str) -> str:
     deduped = list(dict.fromkeys(all_kw))
     return ", ".join(deduped[:12])
 
-def analyze_single(review_text: str) -> dict:
+
+def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
     t = normalize(review_text)
 
     has_phone = bool(PHONE_PATTERN.search(review_text))
@@ -197,7 +205,11 @@ def analyze_single(review_text: str) -> dict:
         forced_sentiment = None
 
     rule_sentiment = detect_rule_sentiment(t, primary_aspect)
-    final_sentiment, sentiment_source, bert_confidence = hybrid_sentiment(review_text, rule_sentiment)
+
+    if use_bert:
+        final_sentiment, sentiment_source, bert_confidence = hybrid_sentiment(review_text, rule_sentiment)
+    else:
+        final_sentiment, sentiment_source, bert_confidence = rule_sentiment, "RULE", 0.0
 
     if strong_negative:
         final_sentiment = 0
@@ -236,8 +248,17 @@ def analyze_single(review_text: str) -> dict:
         "urgent": is_urgent
     }
 
-def analyze_dataframe(df: pd.DataFrame, text_col="Review") -> pd.DataFrame:
+
+def analyze_single(review_text: str) -> dict:
+    return _analyze_core(review_text, use_bert=True)
+
+
+def analyze_row(review_text: str, use_bert: bool = False) -> dict:
+    return _analyze_core(review_text, use_bert=use_bert)
+
+
+def analyze_dataframe(df: pd.DataFrame, text_col="Review", use_bert: bool = False) -> pd.DataFrame:
     rows = []
     for _, row in df.iterrows():
-        rows.append(analyze_single(row[text_col]))
+        rows.append(analyze_row(row[text_col], use_bert=use_bert))
     return pd.DataFrame(rows)
