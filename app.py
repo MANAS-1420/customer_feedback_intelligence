@@ -129,11 +129,27 @@ def compute_nps(result_df: pd.DataFrame):
 
 
 # -----------------------------
+# FIXED DARK THEME VALUES
+# -----------------------------
+bg = "#0f172a"
+text = "#e5e7eb"
+subtext = "#94a3b8"
+card_bg = "rgba(17,24,39,0.96)"
+border = "#334155"
+textarea_bg = "#020617"
+metric_bg = "#111827"
+sidebar_bg = "#111827"
+sidebar_text = "#e5e7eb"
+uploader_bg = "#111827"
+muted_bg = "#0b1220"
+select_bg = "#1f2937"
+option_hover_bg = "#374151"
+
+# -----------------------------
 # SIDEBAR
 # -----------------------------
-st.sidebar.markdown("## ⚙️ Settings")
-theme = st.sidebar.selectbox("🎨 Select Theme", ["Light", "Dark"])
-st.sidebar.markdown("Use Light or Dark mode for better viewing.")
+st.sidebar.markdown("## ⚙️ Dashboard")
+st.sidebar.markdown("Use the tabs to switch between single review and batch analysis.")
 st.sidebar.markdown("---")
 st.sidebar.markdown("## 📌 Usage")
 st.sidebar.markdown("- **Single Review** → analyze one review")
@@ -146,38 +162,6 @@ st.sidebar.markdown("- Aspect detection")
 st.sidebar.markdown("- Emotion + intent classification")
 st.sidebar.markdown("- Priority scoring")
 st.sidebar.markdown("- Business dashboard + NPS")
-
-# -----------------------------
-# THEME VALUES
-# -----------------------------
-if theme == "Light":
-    bg = "#f5f7fb"
-    text = "#111827"
-    subtext = "#6b7280"
-    card_bg = "rgba(255,255,255,0.97)"
-    border = "#e5e7eb"
-    textarea_bg = "#ffffff"
-    metric_bg = "#ffffff"
-    sidebar_bg = "#ffffff"
-    sidebar_text = "#111827"
-    uploader_bg = "#ffffff"
-    muted_bg = "#f8fafc"
-    select_bg = "#ffffff"
-    option_hover_bg = "#f3f4f6"
-else:
-    bg = "#0f172a"
-    text = "#e5e7eb"
-    subtext = "#94a3b8"
-    card_bg = "rgba(17,24,39,0.96)"
-    border = "#334155"
-    textarea_bg = "#020617"
-    metric_bg = "#111827"
-    sidebar_bg = "#111827"
-    sidebar_text = "#e5e7eb"
-    uploader_bg = "#111827"
-    muted_bg = "#0b1220"
-    select_bg = "#1f2937"
-    option_hover_bg = "#374151"
 
 # -----------------------------
 # CSS
@@ -195,7 +179,6 @@ st.markdown(f"""
         max-width: 1300px;
     }}
 
-    /* Sidebar */
     section[data-testid="stSidebar"] {{
         min-width: 290px !important;
         max-width: 290px !important;
@@ -221,7 +204,6 @@ st.markdown(f"""
         color: {sidebar_text} !important;
     }}
 
-    /* Selectbox fix */
     section[data-testid="stSidebar"] div[data-baseweb="select"] {{
         background: {select_bg} !important;
         border-radius: 10px !important;
@@ -265,7 +247,6 @@ st.markdown(f"""
         color: {sidebar_text} !important;
     }}
 
-    /* Header */
     .hero-card {{
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
         color: white;
@@ -458,9 +439,6 @@ st.info("👉 Use **Single Review Analysis** for one review or switch to **Batch
 
 tab1, tab2 = st.tabs(["🧠 Single Review Analysis", "📊 Batch CSV / Excel Analysis"])
 
-# -----------------------------
-# SINGLE REVIEW
-# -----------------------------
 with tab1:
     st.markdown('<div class="section-title">Analyze a single customer review</div>', unsafe_allow_html=True)
     st.markdown('<div class="mini-note">Tip: You can enter English, Hindi, or Hinglish reviews.</div>', unsafe_allow_html=True)
@@ -480,7 +458,6 @@ with tab1:
     if analyze_clicked:
         if review_text.strip():
             start_time = time.time()
-
             with st.spinner("Analyzing review..."):
                 result = analyze_single(review_text)
 
@@ -551,9 +528,6 @@ with tab1:
         else:
             st.warning("Please enter review text.")
 
-# -----------------------------
-# BATCH ANALYSIS
-# -----------------------------
 with tab2:
     st.markdown('<div class="section-title">Batch analysis for CSV / Excel files</div>', unsafe_allow_html=True)
     st.markdown('<div class="mini-note">Supported file types: CSV, XLSX, XLS</div>', unsafe_allow_html=True)
