@@ -77,8 +77,60 @@ def build_reason_text(result: dict) -> str:
     return " | ".join(parts)
 
 
+def action_recommendation(priority_label: str) -> str:
+    p = str(priority_label).lower()
+    if p == "critical":
+        return "Immediate escalation required"
+    if p == "high":
+        return "Assign to senior agent and follow up quickly"
+    if p == "medium":
+        return "Standard follow-up recommended"
+    return "No urgent action needed"
+
+
+def detect_mixed_feedback(text: str) -> bool:
+    t = str(text).lower()
+    markers = [" but ", " however ", " although ", " though ", "lekin", "par", "but still"]
+    return any(m in t for m in markers)
+
+
+def sentiment_to_nps(sentiment_label: str):
+    s = str(sentiment_label).lower()
+    if s == "positive":
+        return "Promoter", 9
+    if s == "neutral":
+        return "Passive", 7
+    return "Detractor", 3
+
+
+def batch_summary(result_df: pd.DataFrame) -> str:
+    if result_df.empty:
+        return "No reviews were processed."
+
+    top_aspect = pretty_label(result_df["primary_aspect_label"].value_counts().idxmax())
+    top_intent = pretty_label(result_df["customer_intent_label"].value_counts().idxmax())
+    top_emotion = pretty_label(result_df["emotion_label"].value_counts().idxmax())
+
+    negative_pct = round((result_df["sentiment_label"] == "negative").mean() * 100, 1)
+    critical_pct = round((result_df["priority_label"] == "critical").mean() * 100, 1)
+
+    return (
+        f"Most reviews are centered around **{top_aspect}**, with **{top_intent}** as the most common intent. "
+        f"The dominant customer emotion is **{top_emotion}**. "
+        f"Negative sentiment accounts for **{negative_pct}%** of reviews, while **{critical_pct}%** are critical issues."
+    )
+
+
+def compute_nps(result_df: pd.DataFrame):
+    nps_types = result_df["sentiment_label"].apply(lambda x: sentiment_to_nps(x)[0])
+    promoters = (nps_types == "Promoter").mean() * 100
+    detractors = (nps_types == "Detractor").mean() * 100
+    nps_value = round(promoters - detractors, 1)
+    return nps_value, nps_types
+
+
 # -----------------------------
-# THEME
+# SIDEBAR
 # -----------------------------
 st.sidebar.markdown("## ⚙️ Settings")
 theme = st.sidebar.selectbox("🎨 Select Theme", ["Light", "Dark"])
@@ -88,7 +140,17 @@ st.sidebar.markdown("## 📌 Usage")
 st.sidebar.markdown("- **Single Review** → analyze one review")
 st.sidebar.markdown("- **Batch Analysis** → upload CSV / Excel")
 st.sidebar.markdown("- Supported formats: **CSV, XLSX, XLS**")
+st.sidebar.markdown("---")
+st.sidebar.markdown("## 💡 What this app does")
+st.sidebar.markdown("- Sentiment analysis")
+st.sidebar.markdown("- Aspect detection")
+st.sidebar.markdown("- Emotion + intent classification")
+st.sidebar.markdown("- Priority scoring")
+st.sidebar.markdown("- Business dashboard + NPS")
 
+# -----------------------------
+# THEME VALUES
+# -----------------------------
 if theme == "Light":
     bg = "#f5f7fb"
     text = "#111827"
@@ -101,6 +163,8 @@ if theme == "Light":
     sidebar_text = "#111827"
     uploader_bg = "#ffffff"
     info_bg = "#e8f1ff"
+    muted_bg = "#f8fafc"
+    select_bg = "#ffffff"
 else:
     bg = "#0f172a"
     text = "#e5e7eb"
@@ -112,6 +176,9 @@ else:
     sidebar_bg = "#111827"
     sidebar_text = "#e5e7eb"
     uploader_bg = "#111827"
+    info_bg = "#172554"
+    muted_bg = "#0b1220"
+    select_bg = "#1f2937"
 
 # -----------------------------
 # CSS
@@ -129,7 +196,7 @@ st.markdown(f"""
         max-width: 1300px;
     }}
 
-    /* Sidebar fix */
+    /* Sidebar */
     section[data-testid="stSidebar"] {{
         min-width: 290px !important;
         max-width: 290px !important;
@@ -145,9 +212,38 @@ st.markdown(f"""
         padding-top: 1rem !important;
     }}
 
-    section[data-testid="stSidebar"] .stSelectbox > div > div {{
-        background: {"#f8fafc" if theme == "Light" else "#1f2937"} !important;
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] li,
+    section[data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] {{
+        color: {sidebar_text} !important;
+    }}
+
+    section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {{
+        background: {select_bg} !important;
+        color: {sidebar_text} !important;
         border-radius: 10px !important;
+    }}
+
+    section[data-testid="stSidebar"] .stSelectbox div {{
+        color: {sidebar_text} !important;
+    }}
+
+    div[data-baseweb="select"] span {{
+        color: {sidebar_text} !important;
+    }}
+
+    div[role="listbox"] {{
+        background: {select_bg} !important;
+        color: {sidebar_text} !important;
+    }}
+
+    div[role="option"] {{
+        color: {sidebar_text} !important;
     }}
 
     button[title="Collapse sidebar"] {{
@@ -158,6 +254,7 @@ st.markdown(f"""
         color: {sidebar_text} !important;
     }}
 
+    /* Header */
     .hero-card {{
         background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
         color: white;
@@ -179,6 +276,7 @@ st.markdown(f"""
         opacity: 0.96;
     }}
 
+    /* General cards */
     .section-title {{
         font-size: 1.2rem;
         font-weight: 700;
@@ -233,24 +331,13 @@ st.markdown(f"""
         margin-bottom: 8px;
     }}
 
-    .priority-low {{
-        background: #10b981;
-    }}
-
-    .priority-medium {{
-        background: #f59e0b;
-    }}
-
-    .priority-high {{
-        background: #f97316;
-    }}
-
-    .priority-critical {{
-        background: #ef4444;
-    }}
+    .priority-low {{ background: #10b981; }}
+    .priority-medium {{ background: #f59e0b; }}
+    .priority-high {{ background: #f97316; }}
+    .priority-critical {{ background: #ef4444; }}
 
     .reason-box {{
-        background: {"#f8fafc" if theme == "Light" else "#0b1220"};
+        background: {muted_bg};
         border: 1px solid {border};
         border-left: 5px solid #6366f1;
         border-radius: 14px;
@@ -260,6 +347,7 @@ st.markdown(f"""
         margin-bottom: 10px;
     }}
 
+    /* Buttons */
     div.stButton > button {{
         background: linear-gradient(90deg, #4f46e5, #9333ea);
         color: white !important;
@@ -275,6 +363,7 @@ st.markdown(f"""
         filter: brightness(1.03);
     }}
 
+    /* Metrics */
     div[data-testid="stMetric"] {{
         background: {metric_bg};
         border: 1px solid {border};
@@ -283,12 +372,14 @@ st.markdown(f"""
         box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
     }}
 
+    /* File uploader */
     div[data-testid="stFileUploader"] {{
         background: {uploader_bg};
         border-radius: 14px;
         padding: 4px;
     }}
 
+    /* Tabs */
     button[data-baseweb="tab"] {{
         color: {text} !important;
         font-weight: 700;
@@ -299,6 +390,7 @@ st.markdown(f"""
         border-bottom: 3px solid #4f46e5 !important;
     }}
 
+    /* Textareas and text */
     h1, h2, h3, h4, h5, h6, p, label, span, div {{
         color: {text};
     }}
@@ -368,6 +460,9 @@ with tab1:
                 result = analyze_single(review_text)
 
             elapsed_time = round(time.time() - start_time, 3)
+            mixed_feedback = detect_mixed_feedback(review_text)
+            nps_type, nps_score = sentiment_to_nps(result["sentiment_label"])
+            action_text = action_recommendation(result["priority_label"])
 
             st.markdown('<div class="soft-card">', unsafe_allow_html=True)
             st.markdown('<div class="section-title">Prediction Summary</div>', unsafe_allow_html=True)
@@ -384,25 +479,29 @@ with tab1:
 
             st.markdown(priority_badge(result["priority_label"]), unsafe_allow_html=True)
 
-            st.markdown(
-                f"""
-                <div class="reason-box">
-                    <strong>Why this result?</strong><br>
-                    {build_reason_text(result)}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
             chips = f"""
             <div class="info-chip-wrap">
                 <span class="info-chip">Sentiment Source: {result['sentiment_source']}</span>
                 <span class="info-chip">BERT Confidence: {result['bert_confidence']}</span>
                 <span class="info-chip">Priority Score: {result['priority_score']}</span>
                 <span class="info-chip">Processing Time: {elapsed_time}s</span>
+                <span class="info-chip">NPS Type: {nps_type}</span>
+                <span class="info-chip">NPS Score: {nps_score}</span>
+                <span class="info-chip">Mixed Feedback: {mixed_feedback}</span>
             </div>
             """
             st.markdown(chips, unsafe_allow_html=True)
+
+            st.markdown(
+                f"""
+                <div class="reason-box">
+                    <strong>Why this result?</strong><br>
+                    {build_reason_text(result)}<br><br>
+                    <strong>Recommended Action:</strong> {action_text}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
             st.markdown(
                 f"""
@@ -491,7 +590,14 @@ with tab2:
                 critical_count = (result_df["priority_label"] == "critical").sum()
                 high_count = (result_df["priority_label"] == "high").sum()
                 top_aspect = result_df["primary_aspect_label"].value_counts().idxmax()
+                negative_pct = round((result_df["sentiment_label"] == "negative").mean() * 100, 1)
+                mixed_count = df[selected_col].astype(str).apply(detect_mixed_feedback).sum()
                 elapsed_time = round(time.time() - start_time, 2)
+
+                nps_value, nps_types = compute_nps(result_df)
+                result_df["nps_type"] = nps_types
+                result_df["action_recommendation"] = result_df["priority_label"].apply(action_recommendation)
+                result_df["mixed_feedback"] = df[selected_col].astype(str).apply(detect_mixed_feedback)
 
                 progress_bar.progress(100)
                 status_text.write(f"✅ Processing complete in {elapsed_time} seconds.")
@@ -499,17 +605,20 @@ with tab2:
                 st.markdown('<div class="soft-card">', unsafe_allow_html=True)
                 st.markdown('<div class="section-title">Business Snapshot</div>', unsafe_allow_html=True)
 
-                m1, m2, m3, m4 = st.columns(4)
+                m1, m2, m3, m4, m5 = st.columns(5)
                 m1.metric("Total Reviews", total_reviews)
                 m2.metric("Critical Issues", critical_count)
                 m3.metric("High Priority", high_count)
-                m4.metric("Processing Time", f"{elapsed_time}s")
+                m4.metric("Negative %", f"{negative_pct}%")
+                m5.metric("NPS Score", nps_value)
 
                 st.markdown(
                     f"""
                     <div class="reason-box">
                         <strong>Top Issue</strong><br>
-                        {pretty_label(top_aspect)}
+                        {pretty_label(top_aspect)}<br><br>
+                        <strong>Batch Summary</strong><br>
+                        {batch_summary(result_df)}
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -571,6 +680,8 @@ with tab2:
                 st.write(f"- Total reviews analyzed: **{total_reviews}**")
                 st.write(f"- Critical issues: **{critical_count}**")
                 st.write(f"- High priority issues: **{high_count}**")
+                st.write(f"- Mixed feedback reviews: **{mixed_count}**")
+                st.write(f"- NPS Score: **{nps_value}**")
                 st.write(f"- Top aspect: **{pretty_label(top_aspect)}**")
                 st.write(f"- Processing completed in: **{elapsed_time} seconds**")
 
