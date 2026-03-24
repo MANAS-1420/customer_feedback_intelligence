@@ -148,7 +148,38 @@ def enforce_consistency(sentiment: int, intent: int, priority: int, emotion: int
     if emotion == EMOTION_LABELS.index("calm") and priority > medium:
         return medium
 
+    if intent == CUSTOMER_INTENT_LABELS.index("praise"):
+        return low
+
+    if intent == CUSTOMER_INTENT_LABELS.index("enquiry") and priority > medium:
+        return medium
+
     return priority
+
+
+def tone_override(row_text: str, sentiment: int, current_intent: int) -> int:
+    complaint_id = CUSTOMER_INTENT_LABELS.index("complaint")
+    delay_id = CUSTOMER_INTENT_LABELS.index("delay")
+    praise_id = CUSTOMER_INTENT_LABELS.index("praise")
+    enquiry_id = CUSTOMER_INTENT_LABELS.index("enquiry")
+    neg_tone_id = CUSTOMER_INTENT_LABELS.index("negative_tone")
+    neu_tone_id = CUSTOMER_INTENT_LABELS.index("neutral_tone")
+    pos_tone_id = CUSTOMER_INTENT_LABELS.index("positive_tone")
+
+    if any_hit(row_text, CUSTOMER_INTENT_KEYWORDS.get("enquiry", [])):
+        return enquiry_id
+    if any_hit(row_text, CUSTOMER_INTENT_KEYWORDS.get("delay", [])):
+        return delay_id
+    if any_hit(row_text, CUSTOMER_INTENT_KEYWORDS.get("complaint", [])):
+        return complaint_id
+    if any_hit(row_text, CUSTOMER_INTENT_KEYWORDS.get("praise", [])):
+        return praise_id
+
+    if sentiment == 0:
+        return neg_tone_id
+    if sentiment == 2:
+        return pos_tone_id
+    return current_intent if current_intent != -1 else neu_tone_id
 
 
 def collect_matches(text: str) -> str:
@@ -179,39 +210,30 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
         "फ्रॉड", "धोखा", "धमकी"
     ]
 
-    # -----------------------------
     # Aspect
-    # -----------------------------
     aspect_idx, aspect_score = score_labels(t, PRIMARY_ASPECT_KEYWORDS, PRIMARY_ASPECT_LABELS)
     if aspect_idx == -1 or aspect_score < 2:
         primary_aspect = PRIMARY_ASPECT_LABELS.index("general_feedback")
     else:
         primary_aspect = aspect_idx
-
     primary_aspect_label = PRIMARY_ASPECT_LABELS[primary_aspect]
 
-    # -----------------------------
     # Emotion
-    # -----------------------------
     emotion_idx, emotion_score = score_labels(t, EMOTION_KEYWORDS, EMOTION_LABELS)
     if emotion_idx == -1 or emotion_score < 1:
         emotion = EMOTION_LABELS.index("calm")
     else:
         emotion = emotion_idx
 
-    # -----------------------------
     # Intent
-    # -----------------------------
     intent_idx, intent_score = score_labels(t, CUSTOMER_INTENT_KEYWORDS, CUSTOMER_INTENT_LABELS)
     if intent_idx == -1 or intent_score < 1:
         customer_intent = CUSTOMER_INTENT_LABELS.index("neutral_tone")
     else:
         customer_intent = intent_idx
 
-    # -----------------------------
     # Priority
-    # -----------------------------
-    priority_idx, priority_kw_score = score_labels(t, PRIORITY_KEYWORDS, PRIORITY_LABELS)
+    priority_idx, _priority_score_kw = score_labels(t, PRIORITY_KEYWORDS, PRIORITY_LABELS)
     if priority_idx == -1:
         rule_priority = PRIORITY_LABELS.index("medium")
     else:
@@ -231,9 +253,7 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
     else:
         forced_sentiment = None
 
-    # -----------------------------
     # Sentiment
-    # -----------------------------
     rule_sentiment = detect_rule_sentiment(t, primary_aspect_label)
 
     if use_bert:
@@ -247,9 +267,12 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
     if forced_sentiment is not None:
         final_sentiment = forced_sentiment
 
-    # -----------------------------
+    customer_intent = tone_override(t, final_sentiment, customer_intent)
+
+    if any_hit(t, severe_risk_terms):
+        customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
+
     # Strong correction layer
-    # -----------------------------
     if final_sentiment == 0:
         if customer_intent in [
             CUSTOMER_INTENT_LABELS.index("neutral_tone"),
@@ -288,11 +311,9 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
         ]:
             emotion = EMOTION_LABELS.index("happy")
 
-    # Negative sentiment should not remain neutral tone
     if final_sentiment == 0 and customer_intent == CUSTOMER_INTENT_LABELS.index("neutral_tone"):
         customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
 
-    # Positive sentiment should not remain complaint unless keywords are strong
     if final_sentiment == 2 and customer_intent == CUSTOMER_INTENT_LABELS.index("complaint"):
         customer_intent = CUSTOMER_INTENT_LABELS.index("praise")
 
@@ -302,20 +323,28 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
         "Review": review_text,
         "Sentiment": final_sentiment,
         "sentiment_label": ["negative", "neutral", "positive"][final_sentiment],
+
         "sentiment_source": sentiment_source,
         "bert_confidence": round(float(bert_confidence), 4),
+
         "primary_aspect": primary_aspect,
         "primary_aspect_label": PRIMARY_ASPECT_LABELS[primary_aspect],
+
         "emotion": emotion,
         "emotion_label": EMOTION_LABELS[emotion],
+
         "customer_intent": customer_intent,
         "customer_intent_label": CUSTOMER_INTENT_LABELS[customer_intent],
+
         "priority": priority,
         "priority_label": PRIORITY_LABELS[priority],
         "priority_score": priority_score,
+
         "aspect_sentiment": final_sentiment,
         "aspect_sentiment_label": ["negative", "neutral", "positive"][final_sentiment],
+
         "matched_keywords": collect_matches(t),
+
         "has_phone": has_phone,
         "has_email": has_email,
         "strong_negative": strong_negative,
