@@ -1,472 +1,338 @@
 import re
-import time
 import pandas as pd
-from typing import Dict, List, Tuple
+from collections import Counter
+from src.config import (
+    PRIMARY_ASPECT_LABELS,
+    EMOTION_LABELS,
+    CUSTOMER_INTENT_LABELS,
+    PRIORITY_LABELS
+)
+from src.rule_engine import (
+    PRIMARY_ASPECT_KEYWORDS,
+    EMOTION_KEYWORDS,
+    CUSTOMER_INTENT_KEYWORDS,
+    PRIORITY_KEYWORDS,
+    ASPECT_SENT_NEG_KW,
+    ASPECT_SENT_POS_KW,
+    ASPECT_SENT_NEU_KW
+)
+from src.utils import normalize, any_hit, matched_keywords
+from src.bert_model import bert_sentiment
 
+PHONE_PATTERN = re.compile(r"\b\d{10}\b")
+EMAIL_PATTERN = re.compile(r"\S+@\S+")
+STRONG_NEG_PATTERN = re.compile(
+    r"(very|too|extremely|bahut|bohot|बहुत)\s+"
+    r"(bad|worst|poor|ghatiya|bekar|खराब|बेकार|घटिया)"
+)
+URGENT_PATTERN = re.compile(
+    r"(urgent|asap|immediately|jaldi|abhi|turant|ज़रूरी|तुरंत|अभी)"
+)
 
-# =========================================================
-# NORMALIZATION
-# =========================================================
-def normalize_text(text: str) -> str:
-    if text is None:
-        return ""
-    text = str(text).lower().strip()
-    text = re.sub(r"[^a-z0-9\u0900-\u097F\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
-
-
-# =========================================================
-# KEYWORDS
-# =========================================================
-ASPECT_KEYWORDS = {
-    "Customer Service": [
-        "customer care", "customer service", "support", "helpdesk", "helpline",
-        "staff", "executive", "agent", "representative", "service team",
-        "team", "branch staff", "manager", "sales person", "salesperson",
-        "care team", "support team", "customer support",
-        "सपोर्ट", "कस्टमर केयर", "स्टाफ", "मैनेजर", "एजेंट", "टीम",
-        "madad", "help", "response", "behaviour", "behavior", "service"
-    ],
-    "Charges": [
-        "charge", "charges", "hidden charge", "hidden charges", "extra charge",
-        "extra charges", "processing fee", "fee", "fees", "penalty", "fine",
-        "late fee", "foreclosure charges", "gst", "cost", "expensive",
-        "zyada paisa", "extra paisa", "कटौती", "चार्ज", "फीस", "पेनल्टी"
-    ],
-    "Interest Rate": [
-        "interest", "interest rate", "roi", "rate", "high interest",
-        "low interest", "apr", "expensive interest", "rate of interest",
-        "ब्याज", "ब्याज दर", "interest jyada", "rate high"
-    ],
-    "EMI / Payment": [
-        "emi", "installment", "payment", "repayment", "pay", "due date",
-        "autodebit", "ecs", "debit", "monthly payment", "emi date",
-        "emi amount", "payment issue", "paid", "payment failed",
-        "किस्त", "ईएमआई", "पेमेंट", "भुगतान", "कट गया", "कटौती"
-    ],
-    "App / Portal": [
-        "app", "application", "portal", "website", "login", "otp", "server",
-        "crash", "bug", "slow", "lag", "not working", "ui", "interface",
-        "dashboard", "online", "technical issue",
-        "ऐप", "लॉगिन", "वेबसाइट", "स्लो", "हैंग", "काम नहीं कर रहा"
-    ],
-    "Loan Process / Approval": [
-        "loan", "approval", "approved", "rejected", "application process",
-        "processing", "verification", "sanction", "eligibility", "apply",
-        "applied", "instant approval", "quick approval",
-        "loan process", "approval process",
-        "लोन", "अप्रूव", "रिजेक्ट", "प्रोसेस", "वेरिफिकेशन"
-    ],
-    "Disbursal": [
-        "disbursal", "disbursement", "credited", "amount received", "money received",
-        "transfer", "credited to account", "loan amount received",
-        "amount transfer", "payout",
-        "डिस्बर्सल", "पैसे मिले", "अमाउंट मिला", "क्रेडिट हुआ"
-    ],
-    "Documentation": [
-        "document", "documents", "documentation", "paperwork", "kyc",
-        "id proof", "address proof", "minimal documentation",
-        "form filling", "upload document",
-        "दस्तावेज", "डॉक्यूमेंट", "केवाईसी", "पेपरवर्क"
-    ],
-    "Collection / Recovery": [
-        "collection", "recovery", "recovery agent", "collection agent",
-        "harassment", "threat", "pressure", "aggressive", "repeated calls",
-        "calls again and again", "spam calls", "follow up calls",
-        "legal notice", "warning call",
-        "रिकवरी", "कलेक्शन", "बार बार कॉल", "धमकी", "परेशान", "हरासमेंट"
-    ],
-    "General Feedback": [
-        "experience", "overall", "service", "good", "bad", "average",
-        "decent", "nice", "fine", "okay", "ok", "satisfied", "unsatisfied",
-        "recommend", "recommended",
-        "अच्छा", "बुरा", "ठीक", "ओके", "संतुष्ट", "अनुभव"
-    ]
+NEGATIVE_ASPECT_BIAS = {
+    "product_quality": True,
+    "delivery_issue": True,
+    "payment_issue": True,
+    "customer_service": True,
+    "pricing_issue": True,
+    "technical_issue": True,
+    "refund_return": True,
+    "general_feedback": False
 }
 
-POSITIVE_WORDS = [
-    "good", "great", "excellent", "amazing", "awesome", "smooth", "fast",
-    "quick", "helpful", "polite", "happy", "satisfied", "impressed",
-    "cooperative", "best", "nice", "transparent", "easy", "hassle free",
-    "resolved", "solved", "fixed", "prompt", "supportive", "professional",
-    "thank you", "thanks", "very good", "well done", "recommended",
-    "achha", "accha", "bahut accha", "sahi", "mast", "badhiya", "jaldi",
-    "theek", "shukriya", "dhanyawad", "khush", "samadhan", "samasya solve"
-]
-
-NEGATIVE_WORDS = [
-    "bad", "worst", "poor", "slow", "delay", "delayed", "rude", "issue",
-    "problem", "error", "failed", "high", "expensive", "confusing", "hidden",
-    "unfair", "not satisfied", "unsatisfied", "difficult", "hard", "harassment",
-    "threat", "aggressive", "spam", "crash", "bug", "worried", "frustrated",
-    "angry", "disappointed", "rejected", "fake", "fraud", "complaint",
-    "bakwas", "bekar", "bura", "ghatiya", "dikat", "dikkat",
-    "pareshan", "kharab", "slow hai", "kaam nahi kar raha", "nahi hua"
-]
-
-NEUTRAL_WORDS = [
-    "okay", "ok", "fine", "average", "decent", "normal", "nothing great",
-    "nothing bad", "manageable", "theek thaak", "thik thak", "theek tha"
-]
-
-RESOLUTION_WORDS = [
-    "solved", "resolved", "fixed", "helped", "supportive", "helpful",
-    "issue resolved", "problem solved", "quick resolution", "handled well",
-    "sorted", "happy with the support", "satisfied with the support",
-    "got solution", "better solution", "samasya solve", "problem solve",
-    "madad ki", "solve kar diya", "resolve kar diya"
-]
-
-PRAISE_WORDS = [
-    "thank you", "thanks", "helpful", "great support", "excellent service",
-    "good service", "happy", "satisfied", "impressed", "very helpful",
-    "quick support", "resolved quickly", "solved quickly", "polite",
-    "cooperative", "recommended", "shukriya", "dhanyawad", "khush"
-]
-
-COMPLAINT_WORDS = [
-    "complaint", "bad experience", "worst", "rude", "hidden charges",
-    "too high", "issue", "problem", "harassment", "aggressive", "delay",
-    "not satisfied", "poor service", "frustrated", "angry", "rejected",
-    "bekar", "bakwas", "pareshan", "dikkat", "dhokha"
-]
-
-QUERY_WORDS = [
-    "can you", "please tell", "want to know", "need help", "how to",
-    "what is", "when will", "why", "query", "question", "poochna"
-]
-
-HIGH_PRIORITY_WORDS = [
-    "harassment", "threat", "fraud", "legal", "worst", "aggressive",
-    "recovery agent", "spam calls", "repeated calls", "serious issue",
-    "urgent", "not received", "money not received", "payment failed",
-    "critical", "danger", "धमकी", "फ्रॉड", "बहुत खराब"
-]
-
-MEDIUM_PRIORITY_WORDS = [
-    "issue", "problem", "delay", "slow", "not working", "confusing",
-    "login issue", "emi issue", "charges", "interest high", "rejected",
-    "dikkat", "pareshan", "late", "bug", "crash"
-]
-
-HAPPY_WORDS = [
-    "happy", "satisfied", "impressed", "thank you", "thanks", "great",
-    "excellent", "good", "helpful", "resolved", "solved", "awesome",
-    "badhiya", "khush", "shukriya", "dhanyawad", "accha"
-]
-
-ANGRY_WORDS = [
-    "angry", "worst", "harassment", "threat", "rude", "frustrated",
-    "aggressive", "fraud", "fake", "spam", "very bad", "terrible",
-    "ghussa", "bakwas", "bekar", "bura", "pareshan"
-]
-
-CALM_WORDS = [
-    "okay", "fine", "average", "decent", "normal", "manageable",
-    "theek", "ok", "acceptable"
-]
+POSITIVE_ASPECT_ALLOW = {
+    "customer_service": True,
+    "general_feedback": True,
+    "product_quality": True
+}
 
 
-# =========================================================
-# HELPERS
-# =========================================================
-def count_matches(text: str, keywords: List[str]) -> int:
-    return sum(1 for kw in keywords if kw in text)
-
-
-def has_any(text: str, keywords: List[str]) -> bool:
-    return any(kw in text for kw in keywords)
-
-
-def get_matches(text: str, keywords: List[str]) -> List[str]:
-    return [kw for kw in keywords if kw in text]
-
-
-def detect_aspect(text: str) -> Tuple[str, List[str]]:
-    scores = {}
-    matched_keywords = {}
-
-    for aspect, keywords in ASPECT_KEYWORDS.items():
-        matches = get_matches(text, keywords)
-        if matches:
-            scores[aspect] = len(matches)
-            matched_keywords[aspect] = matches
+def score_labels(text: str, keywords_by_label: dict, labels: list[str]) -> tuple[int, int]:
+    scores = Counter()
+    for label in labels:
+        for kw in keywords_by_label.get(label, []):
+            if kw and kw in text:
+                scores[label] += 1
 
     if not scores:
-        return "General Feedback", []
+        return -1, 0
 
-    best_aspect = max(scores, key=scores.get)
-    return best_aspect, matched_keywords.get(best_aspect, [])
-
-
-def is_positive_resolution(text: str) -> bool:
-    has_negative_context = has_any(
-        text,
-        [
-            "issue", "problem", "complaint", "not working", "dikkat", "pareshan",
-            "error", "failed", "customer care", "support", "helpdesk"
-        ]
-    )
-    has_resolution = has_any(text, RESOLUTION_WORDS)
-    has_positive = has_any(text, POSITIVE_WORDS)
-    return (has_negative_context and has_resolution) or (has_resolution and has_positive)
+    best_label, best_score = scores.most_common(1)[0]
+    return labels.index(best_label), best_score
 
 
-def detect_sentiment(text: str) -> Tuple[int, str]:
-    if is_positive_resolution(text):
-        return 2, "Positive"
+def detect_rule_sentiment(text: str, aspect_label: str) -> int:
+    if any_hit(text, ASPECT_SENT_NEG_KW):
+        return 0
+    if any_hit(text, ASPECT_SENT_POS_KW):
+        if POSITIVE_ASPECT_ALLOW.get(aspect_label, False):
+            return 2
+        return 1
+    if any_hit(text, ASPECT_SENT_NEU_KW):
+        return 1
+    if NEGATIVE_ASPECT_BIAS.get(aspect_label, False):
+        return 0
+    return 1
 
-    pos_score = count_matches(text, POSITIVE_WORDS)
-    neg_score = count_matches(text, NEGATIVE_WORDS)
-    neu_score = count_matches(text, NEUTRAL_WORDS)
 
-    if "not helpful" in text or "not good" in text or "not satisfied" in text:
-        neg_score += 2
-    if "no hidden charges" in text or "without hidden charges" in text:
-        pos_score += 2
-    if "too high" in text or "very high" in text:
-        neg_score += 2
-    if "quick approval" in text or "fast disbursal" in text:
-        pos_score += 2
+def hybrid_sentiment(text: str, rule_sentiment: int):
+    bert_pred, confidence = bert_sentiment(text)
+    if confidence > 0.75:
+        return bert_pred, "BERT", confidence
+    return rule_sentiment, "RULE", confidence
 
-    if pos_score > neg_score and pos_score >= neu_score:
-        return 2, "Positive"
-    elif neg_score > pos_score and neg_score >= neu_score:
-        return 0, "Negative"
+
+def calculate_priority_score(text: str, has_urgent: bool, strong_negative: bool) -> int:
+    score = 0
+
+    if any_hit(text, [
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "threat", "harassment", "illegal", "dhokha", "dhokebaaz",
+        "फ्रॉड", "धोखा", "धमकी", "चोरी"
+    ]):
+        score += 5
+
+    if any_hit(text, [
+        "money deducted", "double payment", "refund not received",
+        "damaged", "not delivered", "wrong product",
+        "paisa kat gaya", "refund nahi mila", "delivery nahi hui",
+        "पैसा कट गया", "रिफंड नहीं मिला", "डिलीवरी नहीं हुई"
+    ]):
+        score += 4
+
+    if strong_negative:
+        score += 3
+
+    if has_urgent:
+        score += 3
+
+    if any_hit(text, [
+        "delay", "pending", "no response", "slow", "waiting",
+        "late", "follow up", "der", "pending hai",
+        "देरी", "पेंडिंग", "इंतज़ार"
+    ]):
+        score += 2
+
+    if any_hit(text, [
+        "good", "nice", "ok", "fine", "happy", "satisfied",
+        "acha", "theek", "khush", "अच्छा", "ठीक", "खुश"
+    ]):
+        score -= 2
+
+    return score
+
+
+def score_to_priority(score: int) -> int:
+    if score >= 7:
+        return PRIORITY_LABELS.index("critical")
+    if score >= 5:
+        return PRIORITY_LABELS.index("high")
+    if score >= 2:
+        return PRIORITY_LABELS.index("medium")
+    return PRIORITY_LABELS.index("low")
+
+
+def enforce_consistency(sentiment: int, intent: int, priority: int, emotion: int) -> int:
+    low = PRIORITY_LABELS.index("low")
+    medium = PRIORITY_LABELS.index("medium")
+
+    if sentiment == 2:
+        return low
+
+    if sentiment == 1 and priority > medium:
+        return medium
+
+    if emotion == EMOTION_LABELS.index("happy"):
+        return low
+
+    if emotion == EMOTION_LABELS.index("calm") and priority > medium:
+        return medium
+
+    return priority
+
+
+def collect_matches(text: str) -> str:
+    all_kw = []
+    for kw_list in [
+        *PRIMARY_ASPECT_KEYWORDS.values(),
+        *EMOTION_KEYWORDS.values(),
+        *CUSTOMER_INTENT_KEYWORDS.values(),
+        *PRIORITY_KEYWORDS.values()
+    ]:
+        all_kw.extend(matched_keywords(text, kw_list))
+    deduped = list(dict.fromkeys(all_kw))
+    return ", ".join(deduped[:15])
+
+
+def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
+    t = normalize(review_text)
+
+    has_phone = bool(PHONE_PATTERN.search(review_text))
+    has_email = bool(EMAIL_PATTERN.search(review_text))
+    strong_negative = bool(STRONG_NEG_PATTERN.search(t))
+    is_urgent = bool(URGENT_PATTERN.search(t))
+
+    severe_risk_terms = [
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "fraud company", "scam company", "you are cheater", "you are cheaters",
+        "chor", "dhokebaaz", "dhokha", "dhamki",
+        "फ्रॉड", "धोखा", "धमकी"
+    ]
+
+    # -----------------------------
+    # Aspect
+    # -----------------------------
+    aspect_idx, aspect_score = score_labels(t, PRIMARY_ASPECT_KEYWORDS, PRIMARY_ASPECT_LABELS)
+    if aspect_idx == -1 or aspect_score < 2:
+        primary_aspect = PRIMARY_ASPECT_LABELS.index("general_feedback")
     else:
-        return 1, "Neutral"
+        primary_aspect = aspect_idx
 
+    primary_aspect_label = PRIMARY_ASPECT_LABELS[primary_aspect]
 
-def detect_aspect_sentiment(text: str, aspect: str) -> str:
-    if is_positive_resolution(text):
-        return "Positive"
-
-    pos_score = count_matches(text, POSITIVE_WORDS)
-    neg_score = count_matches(text, NEGATIVE_WORDS)
-    neu_score = count_matches(text, NEUTRAL_WORDS)
-
-    if aspect == "Charges":
-        if has_any(text, ["hidden charges", "extra charges", "processing fee too high", "too high charges"]):
-            neg_score += 3
-        if has_any(text, ["no hidden charges", "transparent charges", "charges clear"]):
-            pos_score += 2
-
-    if aspect == "Interest Rate":
-        if has_any(text, ["high interest", "interest too high", "rate too high"]):
-            neg_score += 3
-
-    if aspect == "Customer Service":
-        if has_any(text, ["helpful", "polite", "solved", "resolved", "supportive"]):
-            pos_score += 2
-        if has_any(text, ["rude", "ignored", "no response", "bad behaviour", "bad behavior"]):
-            neg_score += 2
-
-    if aspect == "App / Portal":
-        if has_any(text, ["slow", "crash", "bug", "login issue", "not working"]):
-            neg_score += 2
-
-    if pos_score > neg_score and pos_score >= neu_score:
-        return "Positive"
-    elif neg_score > pos_score and neg_score >= neu_score:
-        return "Negative"
+    # -----------------------------
+    # Emotion
+    # -----------------------------
+    emotion_idx, emotion_score = score_labels(t, EMOTION_KEYWORDS, EMOTION_LABELS)
+    if emotion_idx == -1 or emotion_score < 1:
+        emotion = EMOTION_LABELS.index("calm")
     else:
-        return "Neutral"
+        emotion = emotion_idx
 
-
-def detect_emotion(text: str, sentiment_label: str) -> str:
-    if is_positive_resolution(text):
-        return "Happy"
-
-    happy_score = count_matches(text, HAPPY_WORDS)
-    angry_score = count_matches(text, ANGRY_WORDS)
-    calm_score = count_matches(text, CALM_WORDS)
-
-    if sentiment_label == "Positive":
-        happy_score += 1
-    elif sentiment_label == "Negative":
-        angry_score += 1
+    # -----------------------------
+    # Intent
+    # -----------------------------
+    intent_idx, intent_score = score_labels(t, CUSTOMER_INTENT_KEYWORDS, CUSTOMER_INTENT_LABELS)
+    if intent_idx == -1 or intent_score < 1:
+        customer_intent = CUSTOMER_INTENT_LABELS.index("neutral_tone")
     else:
-        calm_score += 1
+        customer_intent = intent_idx
 
-    if happy_score >= angry_score and happy_score >= calm_score:
-        return "Happy"
-    elif angry_score > happy_score and angry_score >= calm_score:
-        return "Angry"
+    # -----------------------------
+    # Priority
+    # -----------------------------
+    priority_idx, priority_kw_score = score_labels(t, PRIORITY_KEYWORDS, PRIORITY_LABELS)
+    if priority_idx == -1:
+        rule_priority = PRIORITY_LABELS.index("medium")
     else:
-        return "Calm"
+        rule_priority = priority_idx
 
+    priority_score = calculate_priority_score(t, is_urgent, strong_negative)
+    scored_priority = score_to_priority(priority_score)
+    priority = max(rule_priority, scored_priority)
 
-def detect_intent(text: str, sentiment_label: str) -> str:
-    if is_positive_resolution(text):
-        return "Praise"
+    if has_phone or has_email:
+        priority = max(priority, PRIORITY_LABELS.index("medium"))
 
-    praise_score = count_matches(text, PRAISE_WORDS)
-    complaint_score = count_matches(text, COMPLAINT_WORDS)
-    query_score = count_matches(text, QUERY_WORDS)
-
-    if sentiment_label == "Positive":
-        praise_score += 1
-    elif sentiment_label == "Negative":
-        complaint_score += 1
-
-    if praise_score >= complaint_score and praise_score >= query_score:
-        return "Praise"
-    elif complaint_score > praise_score and complaint_score >= query_score:
-        return "Complaint"
+    if any_hit(t, severe_risk_terms):
+        priority = PRIORITY_LABELS.index("critical")
+        emotion = EMOTION_LABELS.index("very_angry")
+        forced_sentiment = 0
     else:
-        return "Neutral Tone"
+        forced_sentiment = None
 
+    # -----------------------------
+    # Sentiment
+    # -----------------------------
+    rule_sentiment = detect_rule_sentiment(t, primary_aspect_label)
 
-def detect_priority(text: str, sentiment_label: str) -> Tuple[str, int]:
-    high_score = count_matches(text, HIGH_PRIORITY_WORDS)
-    medium_score = count_matches(text, MEDIUM_PRIORITY_WORDS)
-
-    if is_positive_resolution(text):
-        if has_any(text, ["issue", "problem", "support", "customer care"]):
-            return "Medium", 0
-        return "Low", -1
-
-    if high_score >= 1:
-        return "High", 2
-    if medium_score >= 1:
-        return "Medium", 1
-    if sentiment_label == "Negative":
-        return "Medium", 1
-    return "Low", -1
-
-
-def detect_nps(sentiment_label: str, text: str) -> Tuple[str, int]:
-    if is_positive_resolution(text):
-        return "Promoter", 9
-    if sentiment_label == "Positive":
-        return "Promoter", 9
-    elif sentiment_label == "Neutral":
-        return "Passive", 6
+    if use_bert:
+        final_sentiment, sentiment_source, bert_confidence = hybrid_sentiment(review_text, rule_sentiment)
     else:
-        return "Detractor", 3
+        final_sentiment, sentiment_source, bert_confidence = rule_sentiment, "RULE", 0.0
 
+    if strong_negative:
+        final_sentiment = 0
 
-def keyword_source(text: str) -> str:
-    return "RULE+CONTEXT" if is_positive_resolution(text) else "RULE"
+    if forced_sentiment is not None:
+        final_sentiment = forced_sentiment
 
+    # -----------------------------
+    # Strong correction layer
+    # -----------------------------
+    if final_sentiment == 0:
+        if customer_intent in [
+            CUSTOMER_INTENT_LABELS.index("neutral_tone"),
+            CUSTOMER_INTENT_LABELS.index("positive_tone"),
+            CUSTOMER_INTENT_LABELS.index("praise")
+        ]:
+            customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
 
-# =========================================================
-# MAIN ANALYSIS
-# =========================================================
-def analyze_review(text: str) -> Dict:
-    start_time = time.time()
+        if emotion == EMOTION_LABELS.index("calm"):
+            emotion = EMOTION_LABELS.index("angry")
 
-    original_text = text if text is not None else ""
-    text = normalize_text(original_text)
+        if primary_aspect == PRIMARY_ASPECT_LABELS.index("general_feedback"):
+            if any_hit(t, ["refund", "return", "money back", "रिफंड", "पैसे वापस"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("refund_return")
+            elif any_hit(t, ["delivery", "shipment", "courier", "tracking", "डिलीवरी", "कूरियर"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("delivery_issue")
+            elif any_hit(t, ["payment", "upi", "charged", "debit", "पेमेंट", "पैसा कट"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("payment_issue")
+            elif any_hit(t, ["support", "service", "staff", "customer care", "सपोर्ट", "स्टाफ"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("customer_service")
+            elif any_hit(t, ["app", "login", "server", "otp", "ऐप", "लॉगिन", "ओटीपी"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("technical_issue")
+            elif any_hit(t, ["quality", "damaged", "broken", "fake", "खराब", "डैमेज", "नकली"]):
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("product_quality")
+            else:
+                primary_aspect = PRIMARY_ASPECT_LABELS.index("customer_service")
 
-    aspect, aspect_keywords = detect_aspect(text)
-    sentiment_num, sentiment_label = detect_sentiment(text)
-    aspect_sentiment = detect_aspect_sentiment(text, aspect)
-    emotion = detect_emotion(text, sentiment_label)
-    intent = detect_intent(text, sentiment_label)
-    priority, priority_score = detect_priority(text, sentiment_label)
-    nps_type, nps_score = detect_nps(sentiment_label, text)
+    if final_sentiment == 2:
+        if customer_intent == CUSTOMER_INTENT_LABELS.index("negative_tone"):
+            customer_intent = CUSTOMER_INTENT_LABELS.index("praise")
 
-    processing_time = round(time.time() - start_time, 3)
+        if emotion in [
+            EMOTION_LABELS.index("angry"),
+            EMOTION_LABELS.index("very_angry"),
+            EMOTION_LABELS.index("frustrated")
+        ]:
+            emotion = EMOTION_LABELS.index("happy")
 
-    matched_total = (
-        count_matches(text, POSITIVE_WORDS)
-        + count_matches(text, NEGATIVE_WORDS)
-        + count_matches(text, NEUTRAL_WORDS)
-    )
+    # Negative sentiment should not remain neutral tone
+    if final_sentiment == 0 and customer_intent == CUSTOMER_INTENT_LABELS.index("neutral_tone"):
+        customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
 
-    if is_positive_resolution(text):
-        confidence = 0.92
-    elif matched_total >= 5:
-        confidence = 0.89
-    elif matched_total >= 3:
-        confidence = 0.81
-    elif matched_total >= 1:
-        confidence = 0.72
-    else:
-        confidence = 0.60
+    # Positive sentiment should not remain complaint unless keywords are strong
+    if final_sentiment == 2 and customer_intent == CUSTOMER_INTENT_LABELS.index("complaint"):
+        customer_intent = CUSTOMER_INTENT_LABELS.index("praise")
+
+    priority = enforce_consistency(final_sentiment, customer_intent, priority, emotion)
 
     return {
-        # raw fields
-        "review": original_text,
-        "normalized_text": text,
-
-        # main prediction fields
-        "aspect": aspect,
+        "Review": review_text,
+        "Sentiment": final_sentiment,
+        "sentiment_label": ["negative", "neutral", "positive"][final_sentiment],
+        "sentiment_source": sentiment_source,
+        "bert_confidence": round(float(bert_confidence), 4),
+        "primary_aspect": primary_aspect,
+        "primary_aspect_label": PRIMARY_ASPECT_LABELS[primary_aspect],
         "emotion": emotion,
+        "emotion_label": EMOTION_LABELS[emotion],
+        "customer_intent": customer_intent,
+        "customer_intent_label": CUSTOMER_INTENT_LABELS[customer_intent],
         "priority": priority,
+        "priority_label": PRIORITY_LABELS[priority],
         "priority_score": priority_score,
-        "intent": intent,
-        "aspect_sentiment": aspect_sentiment,
-
-        # sentiment aliases for app compatibility
-        "sentiment": sentiment_label,
-        "sentiment_label": sentiment_label,
-        "sentiment_score": sentiment_num,
-        "predicted_sentiment": sentiment_num,
-
-        # extra info
-        "matched_aspect_keywords": ", ".join(aspect_keywords) if aspect_keywords else "",
-        "sentiment_source": keyword_source(text),
-        "bert_confidence": round(confidence, 4),
-        "confidence": round(confidence, 4),
-        "processing_time": f"{processing_time}s",
-
-        # nps aliases
-        "nps_type": nps_type,
-        "nps_score": nps_score,
-        "nps_category": nps_type,
-
-        # optional compatibility aliases
-        "primary_aspect": aspect,
-        "emotion_label": emotion,
-        "intent_label": intent,
-        "aspect_sentiment_label": aspect_sentiment
+        "aspect_sentiment": final_sentiment,
+        "aspect_sentiment_label": ["negative", "neutral", "positive"][final_sentiment],
+        "matched_keywords": collect_matches(t),
+        "has_phone": has_phone,
+        "has_email": has_email,
+        "strong_negative": strong_negative,
+        "urgent": is_urgent
     }
 
 
-# =========================================================
-# WRAPPER FUNCTIONS FOR APP COMPATIBILITY
-# =========================================================
-def analyze_single(text: str) -> Dict:
-    return analyze_review(text)
+def analyze_single(review_text: str) -> dict:
+    return _analyze_core(review_text, use_bert=True)
 
 
-def analyze_dataframe(df: pd.DataFrame, text_col: str = "Review") -> pd.DataFrame:
-    if text_col not in df.columns:
-        raise ValueError(f"Column '{text_col}' not found in dataframe.")
-
-    working_df = df.copy()
-    working_df[text_col] = working_df[text_col].fillna("").astype(str)
-
-    results = working_df[text_col].apply(analyze_review)
-    results_df = pd.DataFrame(results.tolist())
-
-    return pd.concat(
-        [working_df.reset_index(drop=True), results_df.reset_index(drop=True)],
-        axis=1
-    )
+def analyze_row(review_text: str, use_bert: bool = False) -> dict:
+    return _analyze_core(review_text, use_bert=use_bert)
 
 
-# =========================================================
-# TESTING
-# =========================================================
-if __name__ == "__main__":
-    test_reviews = [
-        "I contacted customer care regarding my issue and they solved it quickly. Very helpful team. Happy with the support.",
-        "hidden charges were not explained clearly very bad experience",
-        "app works fine but sometimes it crashes during payment",
-        "support team ne meri problem solve kar di thank you",
-        "recovery agents ka behavior bahut aggressive hai",
-        "emi payment process is simple and hassle free",
-        "loan reject kar diya bina proper reason ke"
-    ]
-
-    for i, review in enumerate(test_reviews, 1):
-        result = analyze_single(review)
-        print(f"\n{'=' * 70}")
-        print(f"Review {i}: {review}")
-        print(f"{'=' * 70}")
-        for k, v in result.items():
-            print(f"{k}: {v}")
+def analyze_dataframe(df: pd.DataFrame, text_col: str = "Review", use_bert: bool = False) -> pd.DataFrame:
+    rows = []
+    for _, row in df.iterrows():
+        rows.append(analyze_row(str(row[text_col]), use_bert=use_bert))
+    return pd.DataFrame(rows)
