@@ -20,8 +20,13 @@ from src.bert_model import bert_sentiment
 
 PHONE_PATTERN = re.compile(r"\b\d{10}\b")
 EMAIL_PATTERN = re.compile(r"\S+@\S+")
-STRONG_NEG_PATTERN = re.compile(r"(very|too|extremely|bahut|bohot)\s+(bad|worst|poor|ghatiya|bekar)")
-URGENT_PATTERN = re.compile(r"(urgent|asap|immediately|jaldi|abhi|turant)")
+STRONG_NEG_PATTERN = re.compile(
+    r"(very|too|extremely|bahut|bohot|बहुत)\s+"
+    r"(bad|worst|poor|ghatiya|bekar|खराब|बेकार|घटिया)"
+)
+URGENT_PATTERN = re.compile(
+    r"(urgent|asap|immediately|jaldi|abhi|turant|ज़रूरी|तुरंत|अभी)"
+)
 
 NEGATIVE_ASPECT_BIAS = {
     PRIMARY_ASPECT_LABELS.index("product_quality"): True,
@@ -87,13 +92,22 @@ def tone_override(row_text: str, sentiment: int) -> int:
     return neu_tone_id
 
 
-def calculate_priority_score(text, has_urgent, strong_negative):
+def calculate_priority_score(text: str, has_urgent: bool, strong_negative: bool) -> int:
     score = 0
 
-    if any_hit(text, ["fraud", "frauds", "scam", "scammers", "cheater", "cheaters", "threat", "harassment", "illegal", "dhokha", "dhokebaaz"]):
+    if any_hit(text, [
+        "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
+        "threat", "harassment", "illegal", "dhokha", "dhokebaaz",
+        "फ्रॉड", "धोखा", "धमकी", "चोरी"
+    ]):
         score += 5
 
-    if any_hit(text, ["money deducted", "double payment", "refund not received", "damaged", "not delivered"]):
+    if any_hit(text, [
+        "money deducted", "double payment", "refund not received",
+        "damaged", "not delivered", "wrong product",
+        "paisa kat gaya", "refund nahi mila", "delivery nahi hui",
+        "पैसा कट गया", "रिफंड नहीं मिला", "डिलीवरी नहीं हुई"
+    ]):
         score += 4
 
     if strong_negative:
@@ -102,27 +116,33 @@ def calculate_priority_score(text, has_urgent, strong_negative):
     if has_urgent:
         score += 3
 
-    if any_hit(text, ["delay", "pending", "no response", "slow", "waiting"]):
+    if any_hit(text, [
+        "delay", "pending", "no response", "slow", "waiting",
+        "late", "follow up", "der", "pending hai",
+        "देरी", "पेंडिंग", "इंतज़ार"
+    ]):
         score += 2
 
-    if any_hit(text, ["good", "nice", "ok", "fine", "happy", "satisfied"]):
+    if any_hit(text, [
+        "good", "nice", "ok", "fine", "happy", "satisfied",
+        "acha", "theek", "khush", "अच्छा", "ठीक", "खुश"
+    ]):
         score -= 2
 
     return score
 
 
-def score_to_priority(score):
+def score_to_priority(score: int) -> int:
     if score >= 7:
         return PRIORITY_LABELS.index("critical")
-    elif score >= 5:
+    if score >= 5:
         return PRIORITY_LABELS.index("high")
-    elif score >= 2:
+    if score >= 2:
         return PRIORITY_LABELS.index("medium")
-    else:
-        return PRIORITY_LABELS.index("low")
+    return PRIORITY_LABELS.index("low")
 
 
-def enforce_consistency(sentiment, intent, priority, emotion):
+def enforce_consistency(sentiment: int, intent: int, priority: int, emotion: int) -> int:
     low = PRIORITY_LABELS.index("low")
     medium = PRIORITY_LABELS.index("medium")
 
@@ -156,8 +176,9 @@ def collect_matches(text: str) -> str:
         *PRIORITY_KEYWORDS.values()
     ]:
         all_kw.extend(matched_keywords(text, kw_list))
+
     deduped = list(dict.fromkeys(all_kw))
-    return ", ".join(deduped[:12])
+    return ", ".join(deduped[:15])
 
 
 def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
@@ -171,7 +192,8 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
     severe_risk_terms = [
         "fraud", "frauds", "scam", "scammers", "cheater", "cheaters",
         "fraud company", "scam company", "you are cheater", "you are cheaters",
-        "chor", "dhokebaaz", "dhokha", "dhamki"
+        "chor", "dhokebaaz", "dhokha", "dhamki",
+        "फ्रॉड", "धोखा", "धमकी", "चोरी"
     ]
 
     primary_aspect = best_match_id(
@@ -222,6 +244,29 @@ def _analyze_core(review_text: str, use_bert: bool = True) -> dict:
     if any_hit(t, severe_risk_terms):
         customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
 
+    # Strong fallback correction for negative reviews
+    if final_sentiment == 0:
+        if customer_intent == CUSTOMER_INTENT_LABELS.index("neutral_tone"):
+            customer_intent = CUSTOMER_INTENT_LABELS.index("complaint")
+
+        if emotion == EMOTION_LABELS.index("calm"):
+            emotion = EMOTION_LABELS.index("angry")
+
+        if primary_aspect == PRIMARY_ASPECT_LABELS.index("general_feedback"):
+            primary_aspect = PRIMARY_ASPECT_LABELS.index("customer_service")
+
+    # Positive correction
+    if final_sentiment == 2:
+        if customer_intent == CUSTOMER_INTENT_LABELS.index("negative_tone"):
+            customer_intent = CUSTOMER_INTENT_LABELS.index("praise")
+
+        if emotion in [
+            EMOTION_LABELS.index("angry"),
+            EMOTION_LABELS.index("very_angry"),
+            EMOTION_LABELS.index("frustrated")
+        ]:
+            emotion = EMOTION_LABELS.index("happy")
+
     priority = enforce_consistency(final_sentiment, customer_intent, priority, emotion)
 
     return {
@@ -257,8 +302,8 @@ def analyze_row(review_text: str, use_bert: bool = False) -> dict:
     return _analyze_core(review_text, use_bert=use_bert)
 
 
-def analyze_dataframe(df: pd.DataFrame, text_col="Review", use_bert: bool = False) -> pd.DataFrame:
+def analyze_dataframe(df: pd.DataFrame, text_col: str = "Review", use_bert: bool = False) -> pd.DataFrame:
     rows = []
     for _, row in df.iterrows():
-        rows.append(analyze_row(row[text_col], use_bert=use_bert))
+        rows.append(analyze_row(str(row[text_col]), use_bert=use_bert))
     return pd.DataFrame(rows)
