@@ -1,5 +1,6 @@
 import re
 import time
+import pandas as pd
 from typing import Dict, List, Tuple
 
 
@@ -217,22 +218,10 @@ def is_positive_resolution(text: str) -> bool:
     has_resolution = has_any(text, RESOLUTION_WORDS)
     has_positive = has_any(text, POSITIVE_WORDS)
 
-    # Critical fix:
-    # if review contains earlier problem + later successful resolution,
-    # classify as positive resolved case
-    return (has_negative_context and has_resolution) or (
-        has_resolution and has_positive
-    )
+    return (has_negative_context and has_resolution) or (has_resolution and has_positive)
 
 
 def detect_sentiment(text: str) -> Tuple[int, str]:
-    """
-    Returns:
-        sentiment_num: 0/1/2
-        sentiment_label: Negative/Neutral/Positive
-    """
-
-    # Highest-priority override: positive resolution
     if is_positive_resolution(text):
         return 2, "Positive"
 
@@ -240,7 +229,6 @@ def detect_sentiment(text: str) -> Tuple[int, str]:
     neg_score = count_matches(text, NEGATIVE_WORDS)
     neu_score = count_matches(text, NEUTRAL_WORDS)
 
-    # Helpful negation/context adjustments
     if "not helpful" in text or "not good" in text or "not satisfied" in text:
         neg_score += 2
 
@@ -262,7 +250,6 @@ def detect_sentiment(text: str) -> Tuple[int, str]:
 
 
 def detect_aspect_sentiment(text: str, aspect: str) -> str:
-    # Highest-priority override
     if is_positive_resolution(text):
         return "Positive"
 
@@ -270,7 +257,6 @@ def detect_aspect_sentiment(text: str, aspect: str) -> str:
     neg_score = count_matches(text, NEGATIVE_WORDS)
     neu_score = count_matches(text, NEUTRAL_WORDS)
 
-    # aspect-specific tuning
     if aspect == "Charges":
         if has_any(text, ["hidden charges", "extra charges", "processing fee too high", "too high charges"]):
             neg_score += 3
@@ -300,7 +286,6 @@ def detect_aspect_sentiment(text: str, aspect: str) -> str:
 
 
 def detect_emotion(text: str, sentiment_label: str) -> str:
-    # Highest-priority override
     if is_positive_resolution(text):
         return "Happy"
 
@@ -324,7 +309,6 @@ def detect_emotion(text: str, sentiment_label: str) -> str:
 
 
 def detect_intent(text: str, sentiment_label: str) -> str:
-    # Highest-priority override
     if is_positive_resolution(text):
         return "Praise"
 
@@ -349,8 +333,6 @@ def detect_priority(text: str, sentiment_label: str) -> Tuple[str, int]:
     high_score = count_matches(text, HIGH_PRIORITY_WORDS)
     medium_score = count_matches(text, MEDIUM_PRIORITY_WORDS)
 
-    # fixed logic:
-    # resolved issue should not stay high by default
     if is_positive_resolution(text):
         if has_any(text, ["issue", "problem", "support", "customer care"]):
             return "Medium", 0
@@ -369,10 +351,6 @@ def detect_priority(text: str, sentiment_label: str) -> Tuple[str, int]:
 
 
 def detect_nps(sentiment_label: str, text: str) -> Tuple[str, int]:
-    """
-    Simplified NPS mapping for single review prediction.
-    """
-
     if is_positive_resolution(text):
         return "Promoter", 9
 
@@ -391,7 +369,7 @@ def keyword_source(text: str) -> str:
 
 
 # =========================================================
-# MAIN PIPELINE
+# MAIN ANALYSIS
 # =========================================================
 def analyze_review(text: str) -> Dict:
     start_time = time.time()
@@ -409,7 +387,6 @@ def analyze_review(text: str) -> Dict:
 
     processing_time = round(time.time() - start_time, 3)
 
-    # simple rule confidence
     matched_total = (
         count_matches(text, POSITIVE_WORDS)
         + count_matches(text, NEGATIVE_WORDS)
@@ -431,20 +408,43 @@ def analyze_review(text: str) -> Dict:
         "review": original_text,
         "normalized_text": text,
         "aspect": aspect,
-        "matched_aspect_keywords": aspect_keywords,
+        "matched_aspect_keywords": ", ".join(aspect_keywords) if aspect_keywords else "",
         "emotion": emotion,
         "priority": priority,
         "priority_score": priority_score,
         "intent": intent,
         "aspect_sentiment": aspect_sentiment,
         "sentiment": sentiment_label,
-        "sentiment_score": sentiment_num,   # 0 / 1 / 2
+        "sentiment_score": sentiment_num,
         "sentiment_source": keyword_source(text),
-        "bert_confidence": round(confidence, 4),  # keep same name for UI compatibility
+        "bert_confidence": round(confidence, 4),
         "processing_time": f"{processing_time}s",
         "nps_type": nps_type,
         "nps_score": nps_score
     }
+
+
+# =========================================================
+# WRAPPER FUNCTIONS FOR APP COMPATIBILITY
+# =========================================================
+def analyze_single(text: str) -> Dict:
+    return analyze_review(text)
+
+
+def analyze_dataframe(df: pd.DataFrame, text_col: str = "Review") -> pd.DataFrame:
+    if text_col not in df.columns:
+        raise ValueError(f"Column '{text_col}' not found in dataframe.")
+
+    working_df = df.copy()
+    working_df[text_col] = working_df[text_col].fillna("").astype(str)
+
+    results = working_df[text_col].apply(analyze_review)
+    results_df = pd.DataFrame(results.tolist())
+
+    return pd.concat(
+        [working_df.reset_index(drop=True), results_df.reset_index(drop=True)],
+        axis=1
+    )
 
 
 # =========================================================
@@ -462,9 +462,9 @@ if __name__ == "__main__":
     ]
 
     for i, review in enumerate(test_reviews, 1):
-        result = analyze_review(review)
-        print(f"\n{'='*70}")
+        result = analyze_single(review)
+        print(f"\n{'=' * 70}")
         print(f"Review {i}: {review}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         for k, v in result.items():
             print(f"{k}: {v}")
