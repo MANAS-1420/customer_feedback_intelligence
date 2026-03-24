@@ -11,8 +11,6 @@ def normalize_text(text: str) -> str:
     if text is None:
         return ""
     text = str(text).lower().strip()
-
-    # Keep english, digits, hindi chars, and spaces
     text = re.sub(r"[^a-z0-9\u0900-\u097F\s]", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
@@ -87,7 +85,6 @@ ASPECT_KEYWORDS = {
     ]
 }
 
-
 POSITIVE_WORDS = [
     "good", "great", "excellent", "amazing", "awesome", "smooth", "fast",
     "quick", "helpful", "polite", "happy", "satisfied", "impressed",
@@ -104,7 +101,7 @@ NEGATIVE_WORDS = [
     "unfair", "not satisfied", "unsatisfied", "difficult", "hard", "harassment",
     "threat", "aggressive", "spam", "crash", "bug", "worried", "frustrated",
     "angry", "disappointed", "rejected", "fake", "fraud", "complaint",
-    "bakwas", "bekar", "bura", "ghatiya", "problem", "dikat", "dikkat",
+    "bakwas", "bekar", "bura", "ghatiya", "dikat", "dikkat",
     "pareshan", "kharab", "slow hai", "kaam nahi kar raha", "nahi hua"
 ]
 
@@ -132,7 +129,7 @@ COMPLAINT_WORDS = [
     "complaint", "bad experience", "worst", "rude", "hidden charges",
     "too high", "issue", "problem", "harassment", "aggressive", "delay",
     "not satisfied", "poor service", "frustrated", "angry", "rejected",
-    "bekar", "bakwas", "pareshan", "dikkat", "problem", "dhokha"
+    "bekar", "bakwas", "pareshan", "dikkat", "dhokha"
 ]
 
 QUERY_WORDS = [
@@ -175,11 +172,7 @@ CALM_WORDS = [
 # HELPERS
 # =========================================================
 def count_matches(text: str, keywords: List[str]) -> int:
-    count = 0
-    for kw in keywords:
-        if kw in text:
-            count += 1
-    return count
+    return sum(1 for kw in keywords if kw in text)
 
 
 def has_any(text: str, keywords: List[str]) -> bool:
@@ -217,7 +210,6 @@ def is_positive_resolution(text: str) -> bool:
     )
     has_resolution = has_any(text, RESOLUTION_WORDS)
     has_positive = has_any(text, POSITIVE_WORDS)
-
     return (has_negative_context and has_resolution) or (has_resolution and has_positive)
 
 
@@ -231,13 +223,10 @@ def detect_sentiment(text: str) -> Tuple[int, str]:
 
     if "not helpful" in text or "not good" in text or "not satisfied" in text:
         neg_score += 2
-
     if "no hidden charges" in text or "without hidden charges" in text:
         pos_score += 2
-
     if "too high" in text or "very high" in text:
         neg_score += 2
-
     if "quick approval" in text or "fast disbursal" in text:
         pos_score += 2
 
@@ -340,20 +329,16 @@ def detect_priority(text: str, sentiment_label: str) -> Tuple[str, int]:
 
     if high_score >= 1:
         return "High", 2
-
     if medium_score >= 1:
         return "Medium", 1
-
     if sentiment_label == "Negative":
         return "Medium", 1
-
     return "Low", -1
 
 
 def detect_nps(sentiment_label: str, text: str) -> Tuple[str, int]:
     if is_positive_resolution(text):
         return "Promoter", 9
-
     if sentiment_label == "Positive":
         return "Promoter", 9
     elif sentiment_label == "Neutral":
@@ -363,9 +348,7 @@ def detect_nps(sentiment_label: str, text: str) -> Tuple[str, int]:
 
 
 def keyword_source(text: str) -> str:
-    if is_positive_resolution(text):
-        return "RULE+CONTEXT"
-    return "RULE"
+    return "RULE+CONTEXT" if is_positive_resolution(text) else "RULE"
 
 
 # =========================================================
@@ -374,8 +357,8 @@ def keyword_source(text: str) -> str:
 def analyze_review(text: str) -> Dict:
     start_time = time.time()
 
-    original_text = text
-    text = normalize_text(text)
+    original_text = text if text is not None else ""
+    text = normalize_text(original_text)
 
     aspect, aspect_keywords = detect_aspect(text)
     sentiment_num, sentiment_label = detect_sentiment(text)
@@ -405,22 +388,41 @@ def analyze_review(text: str) -> Dict:
         confidence = 0.60
 
     return {
+        # raw fields
         "review": original_text,
         "normalized_text": text,
+
+        # main prediction fields
         "aspect": aspect,
-        "matched_aspect_keywords": ", ".join(aspect_keywords) if aspect_keywords else "",
         "emotion": emotion,
         "priority": priority,
         "priority_score": priority_score,
         "intent": intent,
         "aspect_sentiment": aspect_sentiment,
+
+        # sentiment aliases for app compatibility
         "sentiment": sentiment_label,
+        "sentiment_label": sentiment_label,
         "sentiment_score": sentiment_num,
+        "predicted_sentiment": sentiment_num,
+
+        # extra info
+        "matched_aspect_keywords": ", ".join(aspect_keywords) if aspect_keywords else "",
         "sentiment_source": keyword_source(text),
         "bert_confidence": round(confidence, 4),
+        "confidence": round(confidence, 4),
         "processing_time": f"{processing_time}s",
+
+        # nps aliases
         "nps_type": nps_type,
-        "nps_score": nps_score
+        "nps_score": nps_score,
+        "nps_category": nps_type,
+
+        # optional compatibility aliases
+        "primary_aspect": aspect,
+        "emotion_label": emotion,
+        "intent_label": intent,
+        "aspect_sentiment_label": aspect_sentiment
     }
 
 
