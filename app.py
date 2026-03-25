@@ -26,7 +26,7 @@ except ImportError:
             primary_aspect_label="general",
             emotion_label="calm",
             bert_confidence=0.85
-        ), {}
+        )
 
 # --- 2. ENTERPRISE PAGE CONFIG ---
 st.set_page_config(
@@ -41,7 +41,7 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Reset & Force Hide Sidebar Elements completely to prevent errors */
+    /* Global Reset & Force Hide Sidebar Elements */
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; color: #F3F4F6; }
     [data-testid="collapsedControl"], header, footer { display: none !important; }
     section[data-testid="stSidebar"] { display: none !important; }
@@ -236,7 +236,14 @@ with tab2:
             if st.button("PROCESS DATASET"):
                 start = time.time()
                 with st.spinner("Executing Batch Intelligence..."):
-                    processed_df, _ = analyze_dataframe(df_input, target_col)
+                    analysis_result = analyze_dataframe(df_input, target_col)
+                    
+                    # Safely handle if pipeline returns (df, meta) or just df
+                    if isinstance(analysis_result, tuple):
+                        processed_df = analysis_result[0]
+                    else:
+                        processed_df = analysis_result
+                        
                 st.session_state.batch_data = processed_df
                 st.session_state.proc_time = time.time() - start
         else:
