@@ -1,5 +1,4 @@
 import re
-import pandas as pd
 import unicodedata
 from collections import Counter
 
@@ -8,8 +7,8 @@ SPECIAL_PATTERN = re.compile(r"[^\w\s\u0900-\u097F]")
 SPACE_PATTERN = re.compile(r"\s+")
 
 def normalize(text: str) -> str:
-    if pd.isna(text) or str(text).strip() == "": return ""
-    t = unicodedata.normalize('NFKC', str(text)).lower()
+    if not isinstance(text, str) or text.strip() == "": return ""
+    t = unicodedata.normalize('NFKC', text).lower()
     t = URL_PATTERN.sub(" ", t)
     t = SPECIAL_PATTERN.sub(" ", t)
     return SPACE_PATTERN.sub(" ", t).strip()
