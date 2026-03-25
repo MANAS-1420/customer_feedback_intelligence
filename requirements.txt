@@ -1,18 +1,21 @@
-# UI and Dashboard
+# Base Web Framework
 streamlit
 
-# Data Manipulation
+# Data Processing & Excel Support
 pandas
 openpyxl
 
-# Visualization
+# Visual Analytics
 plotly
 
-# Machine Learning & NLP
+# Neural Engine (BERT & Transformers)
 transformers
 torch
 tokenizers
 huggingface-hub
 
-# Utilities
+# Executive Summary (Gemini AI)
+google-generativeai
+
+# Text Utilities
 unicodedata2
