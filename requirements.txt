@@ -1,21 +1,7 @@
-# Base Web Framework
 streamlit
-
-# Data Processing & Excel Support
 pandas
-openpyxl
-
-# Visual Analytics
 plotly
-
-# Neural Engine (BERT & Transformers)
 transformers
 torch
-tokenizers
-huggingface-hub
-
-# Executive Summary (Gemini AI)
 google-generativeai
-
-# Text Utilities
-unicodedata2
+openpyxl
