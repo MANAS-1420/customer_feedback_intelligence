@@ -1,222 +1,240 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import time
 from src.pipeline import analyze_single, analyze_dataframe
 from src.bert_model import generate_ai_summary
 
-# --- 1. ENTERPRISE CONFIG & THEME ---
+# --- 1. CONFIG & APP STATE ---
 st.set_page_config(
-    page_title="Feedback Intel AI | Enterprise",
+    page_title="Customer Feedback Intelligence | Titan v4",
     page_icon="💠",
     layout="wide",
-    initial_sidebar_state="collapsed" 
+    initial_sidebar_state="collapsed"
 )
 
-# --- 2. ADVANCED DESIGN SYSTEM (CSS) ---
+# --- 2. THE ULTIMATE PREMIUM CSS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
     
-    /* Global Reset & Hide Sidebar Bug */
-    html, body, [class*="st-"] { font-family: 'Inter', sans-serif; color: #F3F4F6; }
-    [data-testid="collapsedControl"] { display: none; }
-    [data-testid="stSidebarNav"] { display: none; }
-    .stApp {
-        background: #0B0F1A;
-        background-image: 
-            radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+    /* Hide Streamlit Branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="collapsedControl"] {display: none;}
+
+    html, body, [class*="st-"] {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #030712;
+        color: #F9FAFB;
     }
 
-    /* Custom Navigation Bar */
-    .custom-nav {
+    /* Main Background with subtle grid */
+    .stApp {
+        background-color: #030712;
+        background-image: 
+            linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+        background-size: 40px 40px;
+    }
+
+    /* Top Navigation */
+    .nav-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 15px 40px;
-        background: rgba(255, 255, 255, 0.03);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        margin-bottom: 30px;
+        padding: 1.5rem 3rem;
+        background: rgba(17, 24, 39, 0.8);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        position: fixed;
+        top: 0; left: 0; right: 0; z-index: 1000;
     }
 
-    /* Premium Glassmorphism Cards */
-    .premium-card {
-        background: rgba(17, 25, 40, 0.6);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 30px;
-        margin-bottom: 20px;
-        min-height: 250px;
+    /* Premium Block Cards */
+    .block-card {
+        background: #111827;
+        border: 1px solid #1F2937;
+        border-radius: 24px;
+        padding: 2rem;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    .block-card:hover {
+        border-color: #6366F1;
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
     }
 
-    /* Typography & Gradients */
-    .gradient-text {
-        background: linear-gradient(90deg, #A5B4FC, #E879F9);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
+    /* Glowing Metrics */
+    .metric-box {
+        text-align: center;
+        padding: 1.5rem;
+        background: rgba(31, 41, 55, 0.5);
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
     }
+    .metric-label { color: #9CA3AF; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .metric-value { font-size: 1.8rem; font-weight: 800; margin-top: 0.5rem; background: linear-gradient(to right, #818CF8, #C084FC); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-    /* Metric Formatting */
-    div[data-testid="stMetricValue"] > div {
-        font-size: 1.8rem !important;
-        white-space: normal !important;
-        word-wrap: break-word !important;
-    }
-
-    /* Keyword Chips */
-    .keyword-chip {
-        display: inline-block;
-        background: rgba(99, 102, 241, 0.2);
-        color: #A5B4FC;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        margin: 4px;
-        border: 1px solid rgba(99, 102, 241, 0.3);
-    }
-
-    /* Button Styling */
-    .stButton>button {
-        background: linear-gradient(135deg, #6366F1 0%, #A855F7 100%) !important;
-        border: none !important;
-        color: white !important;
-        padding: 12px 28px !important;
-        border-radius: 12px !important;
-        font-weight: 600 !important;
+    /* Action Button Custom Styling */
+    div.stButton > button:first-child {
+        background: linear-gradient(90deg, #4F46E5 0%, #7C3AED 100%);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        width: 100%;
         transition: all 0.3s ease;
+        text-transform: uppercase;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4); }
+    div.stButton > button:hover {
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+        transform: scale(1.02);
+    }
+
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; background-color: transparent; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1F2937;
+        border-radius: 12px;
+        color: #9CA3AF;
+        padding: 10px 25px;
+        font-weight: 600;
+        border: 1px solid transparent;
+    }
+    .stTabs [data-baseweb="tab"]:hover { color: #6366F1; }
+    .stTabs [aria-selected="true"] {
+        background: #374151 !important;
+        border: 1px solid #6366F1 !important;
+        color: white !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. TOP NAVIGATION ---
+# --- 3. CUSTOM NAVBAR ---
 st.markdown("""
-<div class="custom-nav">
-    <div style="font-size: 1.4rem; font-weight: 800; color: #6366F1;">💠 FEEDBACK <span style="color:white;">INTEL AI</span></div>
-    <div style="color: #9CA3AF; font-size: 0.85rem; font-weight: 600;">ENTERPRISE SUITE v3.2 ● SYSTEM ONLINE</div>
+<div class="nav-header">
+    <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px;">
+        <span style="color: #6366F1;">CUSTOMER</span> FEEDBACK <span style="color: #6366F1;">INTELLIGENCE</span>
+    </div>
+    <div style="display: flex; gap: 20px; align-items: center;">
+        <span style="font-size: 0.8rem; color: #10B981; font-weight: 600;">● SYSTEM LIVE</span>
+        <div style="width: 35px; height: 35px; background: #6366F1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800;">M</div>
+    </div>
 </div>
+<div style="margin-top: 100px;"></div>
 """, unsafe_allow_html=True)
 
 # --- 4. HERO SECTION ---
 st.markdown("""
-<div style="text-align: center; margin-bottom: 40px;">
-    <h1 class="gradient-text" style="font-size: 3.5rem; margin-bottom: 0;">Business Intelligence, Reimagined.</h1>
-    <p style="color: #9CA3AF; font-size: 1.1rem;">Advanced Hybrid NLP Architecture for Multilingual Customer Voice.</p>
+<div style="text-align: center; max-width: 800px; margin: 0 auto 50px auto;">
+    <h1 style="font-size: 4rem; font-weight: 800; line-height: 1; margin-bottom: 20px;">
+        AI Intelligence for the <span style="color: #6366F1;">Modern Enterprise.</span>
+    </h1>
+    <p style="color: #9CA3AF; font-size: 1.2rem; font-weight: 400;">
+        Deep sentiment audit, multilingual aspect detection, and executive summaries powered by Hybrid NLP.
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["⚡ REAL-TIME AUDIT", "📦 BATCH INTELLIGENCE"])
+# --- 5. MAIN INTERFACE ---
+tab1, tab2 = st.tabs(["⚡ REAL-TIME AUDIT", "📦 BATCH WORKSPACE"])
 
-# --- 5. TAB 1: REAL-TIME ANALYSIS ---
 with tab1:
-    col_in, col_out = st.columns([1, 1.4], gap="large")
+    col_input, col_output = st.columns([1, 1.4], gap="large")
     
-    with col_in:
-        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        st.markdown("### ✍️ Input Console")
-        review_input = st.text_area("Customer Review", height=200, placeholder="Paste feedback (English/Hindi/Hinglish)...", label_visibility="collapsed")
-        if st.button("EXECUTE NEURAL AUDIT", use_container_width=True):
+    with col_input:
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.markdown("### 📝 Input Terminal")
+        st.caption("Paste customer feedback below for instant analysis.")
+        review_input = st.text_area("Review Input", height=250, placeholder="Example: Payment fail ho gaya par support ne help nahi ki. Very bad...", label_visibility="collapsed")
+        
+        if st.button("EXECUTE ANALYSIS"):
             if review_input.strip():
-                with st.spinner("Decoding sentiment..."):
-                    st.session_state.single_result = analyze_single(review_input)
+                with st.spinner("Decoding..."):
+                    st.session_state.v4_result = analyze_single(review_input)
             else:
-                st.warning("Input required for analysis.")
+                st.warning("Input terminal is empty.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_out:
-        if "single_result" in st.session_state:
-            res = st.session_state.single_result
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("### 🛡️ Audit Intelligence Output")
+    with col_output:
+        if "v4_result" in st.session_state:
+            res = st.session_state.v4_result
+            st.markdown('<div class="block-card">', unsafe_allow_html=True)
+            st.markdown("### 🛠️ Intelligence Metrics")
             
-            # Metrics Row
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Priority", res['priority_label'].upper())
-            m2.metric("Sentiment", res['sentiment_label'].title())
-            m3.metric("Topic", res['primary_aspect_label'].replace("_", " ").title())
-            
-            st.markdown("---")
-            
-            # Metadata Grid
-            c_a, c_b, c_c = st.columns(3)
-            c_a.write(f"**Emotion:** `{res['emotion_label'].title()}`")
-            c_b.write(f"**Intent:** `{res['customer_intent_label'].title()}`")
-            c_c.write(f"**Confidence:** `{res['bert_confidence']*100:.1f}%`")
-
-            # Keyword Chips
-            st.write("**🔍 Intelligence Signals:**")
-            if res['matched_keywords']:
-                chips = "".join([f'<span class="keyword-chip">{k}</span>' for k in res['matched_keywords'].split(",")])
-                st.markdown(chips, unsafe_allow_html=True)
+            # Metric Blocks
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.markdown(f'<div class="metric-box"><div class="metric-label">Priority</div><div class="metric-value">{res["priority_label"].upper()}</div></div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown(f'<div class="metric-box"><div class="metric-label">Sentiment</div><div class="metric-value">{res["sentiment_label"].title()}</div></div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown(f'<div class="metric-box"><div class="metric-label">Topic</div><div class="metric-value">{res["primary_aspect_label"].replace("_", " ").title()}</div></div>', unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            if res['priority_label'] == 'critical':
-                st.error("🚨 **CRITICAL:** High-risk issue. Immediate escalation triggered.")
-            elif res['priority_label'] == 'high':
-                st.warning("⚠️ **ACTION:** Requires priority response within 4 hours.")
-            else:
-                st.success("✅ **STABLE:** No immediate action required.")
+            
+            # Secondary Data Row
+            ca, cb, cc = st.columns(3)
+            ca.write(f"**Emotion:** `{res['emotion_label'].title()}`")
+            cb.write(f"**Intent:** `{res['customer_intent_label'].title()}`")
+            cc.write(f"**BERT Conf:** `{res['bert_confidence']*100:.1f}%`")
+            
+            st.divider()
+            st.write("**🔍 Intelligence Signals:**")
+            if res['matched_keywords']:
+                kw_html = "".join([f'<span style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; margin: 4px; display: inline-block; color: #A5B4FC;">{k}</span>' for k in res['matched_keywords'].split(",")])
+                st.markdown(kw_html, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            if res['priority_label'] == 'critical': st.error("🚨 **CRITICAL RISK:** Immediate escalation to management required.")
+            else: st.success("✅ **STABLE:** Logged for standard reporting.")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
-            # Landing Placeholder (No Empty Boxes)
+            # Landing Placeholder
             st.markdown("""
-            <div class="premium-card" style="display: flex; align-items: center; justify-content: center; text-align: center;">
+            <div class="block-card" style="height: 480px; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px dashed #1F2937;">
                 <div>
-                    <h2 style="color: #6366F1;">Ready for Audit?</h2>
-                    <p style="color: #9CA3AF;">Paste a customer review to begin real-time analysis.</p>
+                    <div style="font-size: 3rem; margin-bottom: 20px;">🛡️</div>
+                    <h2 style="color: #6366F1;">Neural Standby</h2>
+                    <p style="color: #9CA3AF;">Awaiting data input from the terminal to begin analysis.</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-# --- 6. TAB 2: BATCH PROCESSING ---
 with tab2:
-    st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-    st.markdown("### 📂 Bulk Processing Unit")
-    up_file = st.file_uploader("Upload CSV/XLSX for Enterprise Audit", type=["csv", "xlsx"])
+    st.markdown('<div class="block-card">', unsafe_allow_html=True)
+    st.markdown("### 📂 Bulk Processing Workspace")
+    file = st.file_uploader("Drop CSV or XLSX files here", type=["csv", "xlsx"], label_visibility="collapsed")
     
-    if up_file:
-        df_raw = pd.read_csv(up_file) if up_file.name.endswith('.csv') else pd.read_excel(up_file)
-        target_col = st.selectbox("Select Target Column", df_raw.columns)
-        
-        if st.button("PROCESS ENTERPRISE DATASET"):
-            with st.spinner("Executing Batch Pipeline..."):
-                st.session_state.batch_df = analyze_dataframe(df_raw, text_col=target_col)
+    if file:
+        df = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
+        col = st.selectbox("Select Text Column", df.columns)
+        if st.button("PROCESS DATASET"):
+            with st.spinner("Scaling Intelligence..."):
+                st.session_state.v4_batch = analyze_dataframe(df, col)
 
-    if "batch_df" in st.session_state:
-        b_df = st.session_state.batch_df
+    if "v4_batch" in st.session_state:
+        b_df = st.session_state.v4_batch
         st.divider()
-        
-        # Gemini Executive Summary
-        st.subheader("✨ AI Global Briefing (Gemini 1.5 Flash)")
-        with st.spinner("Synthesizing data trends..."):
-            summary = generate_ai_summary(b_df.head(15))
-            st.markdown(f'<div style="background: rgba(99,102,241,0.1); padding: 25px; border-radius: 15px; border-left: 5px solid #6366F1;">{summary}</div>', unsafe_allow_html=True)
+        st.subheader("✨ Executive Summary")
+        summary = generate_ai_summary(b_df.head(20))
+        st.markdown(f'<div style="background: rgba(99, 102, 241, 0.05); border: 1px solid #6366F1; padding: 30px; border-radius: 20px; color: #E5E7EB; line-height: 1.6;">{summary}</div>', unsafe_allow_html=True)
         
         st.divider()
+        v1, v2 = st.columns([1, 1.2])
+        v1.plotly_chart(px.pie(b_df, names='sentiment_label', hole=0.7, color_discrete_sequence=['#EF4444', '#6B7280', '#10B981']), use_container_width=True)
+        v2.plotly_chart(px.bar(b_df['primary_aspect_label'].value_counts(), orientation='h', title="Top Issue Categories"), use_container_width=True)
         
-        # Visual Analytics
-        v1, v2, v3 = st.columns(3)
-        with v1:
-            st.plotly_chart(px.pie(b_df, names='sentiment_label', hole=0.6, color_discrete_sequence=['#EF4444', '#6B7280', '#10B981']), use_container_width=True)
-        with v2:
-            st.plotly_chart(px.bar(b_df['primary_aspect_label'].value_counts(), title="Volume by Aspect"), use_container_width=True)
-        with v3:
-            st.plotly_chart(px.bar(b_df['emotion_label'].value_counts(), title="Volume by Emotion"), use_container_width=True)
-            
         st.dataframe(b_df, use_container_width=True)
-        
-        # Download
-        csv_data = b_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 DOWNLOAD AUDIT REPORT", data=csv_data, file_name="ai_audit_report.csv", mime="text/csv")
-        
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 7. FOOTER ---
+# --- 6. FOOTER ---
 st.markdown("""
-<div style="text-align: center; color: #4B5563; font-size: 0.85rem; margin-top: 50px; padding-bottom: 20px;">
-    Developed by Manas | Enterprise AI Portfolio v3.2 | Built with Hybrid NLP & Gemini Flash
+<div style="text-align: center; margin-top: 50px; padding-bottom: 30px; color: #4B5563; font-size: 0.8rem;">
+    TITAN ENTERPRISE v4.0 | BUILT BY MANAS | HYBRID NLP & GEMINI 1.5 FLASH
 </div>
 """, unsafe_allow_html=True)
