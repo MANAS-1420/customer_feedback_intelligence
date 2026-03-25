@@ -3,30 +3,31 @@ import pandas as pd
 import plotly.express as px
 from io import BytesIO
 import time
+import random
 
-# --- 1. CORE PIPELINE INTEGRATION ---
+# --- 1. CORE PIPELINE INTEGRATION & CONNECTION CHECK ---
+PIPELINE_CONNECTED = True
 try:
     from src.pipeline import analyze_single, analyze_dataframe
 except ImportError:
+    PIPELINE_CONNECTED = False
+    # Smart Fallback: Randomizes slightly so the UI charts don't break/skew 100% to one category
     def analyze_single(text):
         return {
-            "sentiment_label": "neutral", 
-            "priority_label": "low", 
-            "primary_aspect_label": "general_feedback",
-            "emotion_label": "calm",
-            "customer_intent_label": "neutral_tone",
-            "bert_confidence": 0.85,
-            "matched_keywords": ["general"],
-            "action_recommendation": "Standard logging."
+            "sentiment_label": random.choice(["negative", "neutral", "positive"]), 
+            "priority_label": random.choice(["low", "medium", "high", "critical"]), 
+            "primary_aspect_label": random.choice(["customer_service", "payment_issue", "delivery_issue", "general_feedback"]),
+            "emotion_label": "frustrated",
+            "customer_intent_label": "complaint",
+            "bert_confidence": random.uniform(0.60, 0.95),
+            "matched_keywords": ["fallback_mode"],
+            "action_recommendation": "Check pipeline connection."
         }
     def analyze_dataframe(df, col):
-        return df.assign(
-            sentiment_label="neutral",
-            priority_label="low",
-            primary_aspect_label="general",
-            emotion_label="calm",
-            bert_confidence=0.85
-        )
+        # Applies the mock analyze_single to each row to generate varied dummy data
+        results = df[col].astype(str).apply(analyze_single)
+        res_df = pd.DataFrame(list(results))
+        return pd.concat([df.reset_index(drop=True), res_df], axis=1), {}
 
 # --- 2. ENTERPRISE PAGE CONFIG ---
 st.set_page_config(
@@ -41,7 +42,6 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Reset & Force Hide Sidebar Elements */
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; color: #F3F4F6; }
     [data-testid="collapsedControl"], header, footer { display: none !important; }
     section[data-testid="stSidebar"] { display: none !important; }
@@ -52,7 +52,6 @@ st.markdown("""
         background-size: 40px 40px;
     }
 
-    /* Custom Top Navigation Bar */
     .custom-nav {
         display: flex;
         justify-content: space-between;
@@ -65,7 +64,6 @@ st.markdown("""
         top: 0; left: 0; right: 0; z-index: 1000;
     }
 
-    /* Premium Content Cards */
     .block-card {
         background: #111827;
         border: 1px solid #1F2937;
@@ -75,7 +73,6 @@ st.markdown("""
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
     }
 
-    /* KPI / Metric Block Styling */
     .kpi-container {
         background: rgba(31, 41, 55, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.05);
@@ -86,7 +83,6 @@ st.markdown("""
     .kpi-label { color: #9CA3AF; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
     .kpi-value { font-size: 1.7rem; font-weight: 800; margin-top: 8px; background: linear-gradient(90deg, #A5B4FC, #E879F9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-    /* Premium Tabs Customization */
     .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 24px; }
     .stTabs [data-baseweb="tab"] {
         background-color: #1F2937;
@@ -97,13 +93,8 @@ st.markdown("""
         border: 1px solid transparent;
         transition: all 0.3s ease;
     }
-    .stTabs [aria-selected="true"] {
-        background: #374151 !important;
-        border: 1px solid #6366F1 !important;
-        color: white !important;
-    }
+    .stTabs [aria-selected="true"] { background: #374151 !important; border: 1px solid #6366F1 !important; color: white !important; }
 
-    /* Action Button Enhancement */
     div.stButton > button {
         background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
         color: white !important;
@@ -114,12 +105,8 @@ st.markdown("""
         width: 100%;
         transition: transform 0.2s, box-shadow 0.2s !important;
     }
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5);
-    }
+    div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
     
-    /* Upload area styling */
     [data-testid="stFileUploadDropzone"] {
         background-color: rgba(31, 41, 55, 0.5) !important;
         border: 2px dashed #374151 !important;
@@ -142,6 +129,10 @@ st.markdown("""
 <div style="margin-top: 100px;"></div>
 """, unsafe_allow_html=True)
 
+# --- PIPELINE WARNING BANNER ---
+if not PIPELINE_CONNECTED:
+    st.error("⚠️ **CONNECTION ERROR:** The system could not locate `src.pipeline`. The dashboard is running in **Mock Safety Mode**. Please check your GitHub folder structure and ensure `src/__init__.py` exists.")
+
 # --- 5. DATA PROCESSING HELPERS ---
 def detect_review_column(df):
     keywords = ['review', 'comment', 'feedback', 'text', 'message', 'complaint', 'remark']
@@ -161,7 +152,6 @@ def render_kpi_block(label, value):
 # --- 6. MAIN APPLICATION TABS ---
 tab1, tab2, tab3 = st.tabs(["⚡ REAL-TIME AUDIT", "📦 BATCH WORKSPACE", "📊 STRATEGIC INSIGHTS"])
 
-# --- TAB 1: SINGLE REVIEW ANALYSIS ---
 with tab1:
     col_l, col_r = st.columns([1, 1.4], gap="large")
     
@@ -169,7 +159,7 @@ with tab1:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
         st.caption("Deep analysis for English, Hindi, and Hinglish feedback.")
-        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Payment fail ho gaya par support ne help nahi ki. Product is broken...", label_visibility="collapsed")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Payment fail ho gaya par support ne help nahi ki...", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         if c1.button("EXECUTE ANALYSIS"):
@@ -221,7 +211,6 @@ with tab1:
                 </div>
             """, unsafe_allow_html=True)
 
-# --- TAB 2: BATCH PROCESSING ---
 with tab2:
     st.markdown('<div class="block-card">', unsafe_allow_html=True)
     st.markdown("### 📂 Bulk Processing Workspace")
@@ -237,8 +226,6 @@ with tab2:
                 start = time.time()
                 with st.spinner("Executing Batch Intelligence..."):
                     analysis_result = analyze_dataframe(df_input, target_col)
-                    
-                    # Safely handle if pipeline returns (df, meta) or just df
                     if isinstance(analysis_result, tuple):
                         processed_df = analysis_result[0]
                     else:
@@ -254,13 +241,10 @@ with tab2:
         st.divider()
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Scanned Records", len(b_df))
-        
         neg_ratio = (b_df['sentiment_label'] == 'negative').mean() * 100 if 'sentiment_label' in b_df.columns else 0.0
         k2.metric("Negative Ratio", f"{neg_ratio:.1f}%")
-        
         crit_count = len(b_df[b_df['priority_label'] == 'critical']) if 'priority_label' in b_df.columns else 0
         k3.metric("Critical Alerts", crit_count)
-        
         k4.metric("Process Time", f"{st.session_state.get('proc_time', 0):.2f}s")
         
         st.dataframe(b_df, use_container_width=True)
@@ -276,7 +260,6 @@ with tab2:
         
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- TAB 3: DASHBOARD / INSIGHTS ---
 with tab3:
     if "batch_data" in st.session_state:
         d_df = st.session_state.batch_data
@@ -285,10 +268,8 @@ with tab3:
         c1.metric("Total Intelligence", len(d_df))
         pos_ratio = (d_df['sentiment_label'] == 'positive').mean() * 100 if 'sentiment_label' in d_df.columns else 0.0
         c2.metric("Positive Sentiment", f"{pos_ratio:.1f}%")
-        
         avg_conf = d_df['bert_confidence'].mean() * 100 if 'bert_confidence' in d_df.columns else 0.0
         c3.metric("Avg AI Confidence", f"{avg_conf:.1f}%")
-        
         risk_segs = d_df['priority_label'].nunique() if 'priority_label' in d_df.columns else 0
         c4.metric("Risk Segments", risk_segs)
         
@@ -296,16 +277,14 @@ with tab3:
         v1, v2 = st.columns(2)
         with v1:
             if 'sentiment_label' in d_df.columns:
-                fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Sentiment Share",
-                              color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
+                fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Sentiment Share", color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
                 fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
                 st.plotly_chart(fig_p, use_container_width=True)
             else:
                 st.info("Sentiment data not available for charting.")
         with v2:
             if 'primary_aspect_label' in d_df.columns:
-                fig_b = px.bar(d_df['primary_aspect_label'].value_counts().reset_index(), x='count', y='primary_aspect_label', 
-                              orientation='h', title="Concerns by Aspect", color='count', color_continuous_scale='Purples')
+                fig_b = px.bar(d_df['primary_aspect_label'].value_counts().reset_index(), x='count', y='primary_aspect_label', orientation='h', title="Concerns by Aspect", color='count', color_continuous_scale='Purples')
                 fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_b, use_container_width=True)
             else:
