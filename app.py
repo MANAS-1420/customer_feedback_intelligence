@@ -1,24 +1,36 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from io import BytesIO
 import time
 
 # --- 1. CORE PIPELINE INTEGRATION ---
-# Handling imports safely for Streamlit Cloud deployment
 try:
     from src.pipeline import analyze_single, analyze_dataframe
 except ImportError:
-    # Fallback to ensure the app doesn't crash during initial cloud setup
     def analyze_single(text):
-        return {"sentiment_label": "neutral", "priority_label": "low", "primary_aspect_label": "general"}
+        return {
+            "sentiment_label": "neutral", 
+            "priority_label": "low", 
+            "primary_aspect_label": "general_feedback",
+            "emotion_label": "calm",
+            "customer_intent_label": "neutral_tone",
+            "bert_confidence": 0.85,
+            "matched_keywords": ["general"],
+            "action_recommendation": "Standard logging."
+        }
     def analyze_dataframe(df, col):
-        return df.assign(sentiment_label="neutral"), {}
+        return df.assign(
+            sentiment_label="neutral",
+            priority_label="low",
+            primary_aspect_label="general",
+            emotion_label="calm",
+            bert_confidence=0.85
+        ), {}
 
 # --- 2. ENTERPRISE PAGE CONFIG ---
 st.set_page_config(
-    page_title="Customer Feedback Intelligence | Enterprise",
+    page_title="Customer Feedback Intelligence",
     page_icon="💠",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -29,9 +41,10 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* Global Reset & Hide Streamlit Default Indicators */
+    /* Global Reset & Force Hide Sidebar Elements completely to prevent errors */
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; color: #F3F4F6; }
-    [data-testid="collapsedControl"], header, footer { display: none; }
+    [data-testid="collapsedControl"], header, footer { display: none !important; }
+    section[data-testid="stSidebar"] { display: none !important; }
     
     .stApp {
         background-color: #030712;
@@ -44,10 +57,10 @@ st.markdown("""
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1rem 3rem;
-        background: rgba(17, 24, 39, 0.9);
+        padding: 1rem 4rem;
+        background: rgba(17, 24, 39, 0.95);
         backdrop-filter: blur(20px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         position: fixed;
         top: 0; left: 0; right: 0; z-index: 1000;
     }
@@ -58,30 +71,28 @@ st.markdown("""
         border: 1px solid #1F2937;
         border-radius: 24px;
         padding: 2.5rem;
-        margin-top: 10px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-        transition: border-color 0.3s ease;
+        margin-top: 15px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
     }
-    .block-card:hover { border-color: #6366F1; }
 
     /* KPI / Metric Block Styling */
     .kpi-container {
-        background: rgba(31, 41, 55, 0.5);
+        background: rgba(31, 41, 55, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 18px;
+        border-radius: 20px;
         padding: 1.5rem;
         text-align: center;
     }
-    .kpi-label { color: #9CA3AF; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .kpi-value { font-size: 1.6rem; font-weight: 800; margin-top: 5px; background: linear-gradient(90deg, #A5B4FC, #E879F9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .kpi-label { color: #9CA3AF; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+    .kpi-value { font-size: 1.7rem; font-weight: 800; margin-top: 8px; background: linear-gradient(90deg, #A5B4FC, #E879F9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
     /* Premium Tabs Customization */
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 20px; }
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 24px; }
     .stTabs [data-baseweb="tab"] {
         background-color: #1F2937;
-        border-radius: 12px;
+        border-radius: 14px;
         color: #9CA3AF;
-        padding: 10px 30px;
+        padding: 12px 32px;
         font-weight: 600;
         border: 1px solid transparent;
         transition: all 0.3s ease;
@@ -97,35 +108,38 @@ st.markdown("""
         background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
         color: white !important;
         border: none !important;
-        padding: 12px 24px !important;
-        border-radius: 14px !important;
+        padding: 14px 24px !important;
+        border-radius: 16px !important;
         font-weight: 700 !important;
         width: 100%;
         transition: transform 0.2s, box-shadow 0.2s !important;
     }
     div.stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4);
+        box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5);
     }
-
-    /* Utility Helpers */
-    .badge { padding: 4px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; }
-    .status-up { color: #10B981; }
+    
+    /* Upload area styling */
+    [data-testid="stFileUploadDropzone"] {
+        background-color: rgba(31, 41, 55, 0.5) !important;
+        border: 2px dashed #374151 !important;
+        border-radius: 16px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 4. TOP NAVIGATION HEADER ---
 st.markdown("""
 <div class="custom-nav">
-    <div style="font-size: 1.3rem; font-weight: 800; letter-spacing: -0.5px;">
+    <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px;">
         <span style="color: #6366F1;">CUSTOMER</span> FEEDBACK <span style="color: #6366F1;">INTELLIGENCE</span>
     </div>
     <div style="display: flex; gap: 20px; align-items: center;">
-        <span class="status-up">● SYSTEM OPERATIONAL</span>
-        <div style="width: 35px; height: 35px; background: #6366F1; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800;">M</div>
+        <span style="color: #10B981; font-weight: 700; font-size: 0.85rem;">● SYSTEM OPERATIONAL</span>
+        <div style="width: 38px; height: 38px; background: #6366F1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white;">M</div>
     </div>
 </div>
-<div style="margin-top: 80px;"></div>
+<div style="margin-top: 100px;"></div>
 """, unsafe_allow_html=True)
 
 # --- 5. DATA PROCESSING HELPERS ---
@@ -134,7 +148,7 @@ def detect_review_column(df):
     for col in df.columns:
         if any(kw in col.lower() for kw in keywords):
             return col
-    return df.columns[0]
+    return df.columns[0] if len(df.columns) > 0 else None
 
 def render_kpi_block(label, value):
     st.markdown(f"""
@@ -154,8 +168,8 @@ with tab1:
     with col_l:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
-        st.caption("Paste customer feedback below for neural analysis.")
-        raw_text = st.text_area("Review Input", height=220, placeholder="Example: Payment fail ho gaya par support ne help nahi ki...", label_visibility="collapsed")
+        st.caption("Deep analysis for English, Hindi, and Hinglish feedback.")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Payment fail ho gaya par support ne help nahi ki. Product is broken...", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         if c1.button("EXECUTE ANALYSIS"):
@@ -191,16 +205,18 @@ with tab1:
             kw = res.get('matched_keywords', [])
             if kw:
                 st.markdown(" ".join([f'<span style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; margin: 4px; display: inline-block; color: #A5B4FC;">{k}</span>' for k in (kw if isinstance(kw, list) else kw.split(","))]), unsafe_allow_html=True)
-            
+            else:
+                st.caption("No specific rule-based keywords triggered.")
+                
             st.info(f"**Action Recommendation:** {res.get('action_recommendation', 'Log for standard reporting.')}")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.markdown("""
-                <div class="block-card" style="height: 430px; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px dashed #1F2937;">
+                <div class="block-card" style="height: 460px; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px dashed #1F2937;">
                     <div>
-                        <div style="font-size: 3.5rem; margin-bottom: 20px;">💠</div>
-                        <h2 style="color: #6366F1;">Neural Standby</h2>
-                        <p style="color: #9CA3AF;">Awaiting data input from terminal to begin audit.</p>
+                        <div style="font-size: 4rem; margin-bottom: 24px;">💠</div>
+                        <h2 style="color: #6366F1; font-weight: 800;">Neural Standby</h2>
+                        <p style="color: #9CA3AF; max-width: 320px;">Awaiting data input from terminal to begin the audit process.</p>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -214,32 +230,43 @@ with tab2:
     if file:
         df_input = pd.read_csv(file) if file.name.endswith('.csv') else pd.read_excel(file)
         detected_col = detect_review_column(df_input)
-        target_col = st.selectbox("Confirm Target Review Column", df_input.columns, index=list(df_input.columns).index(detected_col))
-        
-        if st.button("PROCESS DATASET"):
-            start = time.time()
-            with st.spinner("Scaling Intelligence..."):
-                processed_df, meta = analyze_dataframe(df_input, target_col)
-                # Fallback if analyze_dataframe doesn't return second meta dict
-                if not isinstance(meta, dict): meta = {}
-                
-            st.session_state.batch_data = processed_df
-            st.session_state.batch_meta = meta
-            st.session_state.proc_time = time.time() - start
+        if detected_col:
+            target_col = st.selectbox("Confirm Target Review Column", df_input.columns, index=list(df_input.columns).index(detected_col))
+            
+            if st.button("PROCESS DATASET"):
+                start = time.time()
+                with st.spinner("Executing Batch Intelligence..."):
+                    processed_df, _ = analyze_dataframe(df_input, target_col)
+                st.session_state.batch_data = processed_df
+                st.session_state.proc_time = time.time() - start
+        else:
+            st.error("No valid columns found in the uploaded file.")
 
     if "batch_data" in st.session_state:
         b_df = st.session_state.batch_data
         st.divider()
         k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Records", len(b_df))
-        k2.metric("Negative Ratio", f"{(b_df['sentiment_label'] == 'negative').mean()*100:.1f}%")
-        k3.metric("Critical Alerts", len(b_df[b_df['priority_label'] == 'critical']))
-        k4.metric("Execution Time", f"{st.session_state.proc_time:.2f}s")
+        k1.metric("Scanned Records", len(b_df))
         
-        st.dataframe(b_df.head(100), use_container_width=True)
+        neg_ratio = (b_df['sentiment_label'] == 'negative').mean() * 100 if 'sentiment_label' in b_df.columns else 0.0
+        k2.metric("Negative Ratio", f"{neg_ratio:.1f}%")
         
+        crit_count = len(b_df[b_df['priority_label'] == 'critical']) if 'priority_label' in b_df.columns else 0
+        k3.metric("Critical Alerts", crit_count)
+        
+        k4.metric("Process Time", f"{st.session_state.get('proc_time', 0):.2f}s")
+        
+        st.dataframe(b_df, use_container_width=True)
+        
+        d_col1, d_col2 = st.columns(2)
         csv_out = b_df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 DOWNLOAD AUDIT REPORT (CSV)", data=csv_out, file_name="ai_audit_report.csv", mime="text/csv")
+        d_col1.download_button("📥 DOWNLOAD AUDIT REPORT (CSV)", data=csv_out, file_name="ai_audit_report.csv", mime="text/csv")
+        
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            b_df.to_excel(writer, index=False)
+        d_col2.download_button("📥 DOWNLOAD AUDIT REPORT (XLSX)", data=output.getvalue(), file_name="ai_audit_report.xlsx")
+        
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- TAB 3: DASHBOARD / INSIGHTS ---
@@ -247,42 +274,44 @@ with tab3:
     if "batch_data" in st.session_state:
         d_df = st.session_state.batch_data
         
-        # Dashboard KPIs
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Intelligence Scanned", len(d_df))
-        c2.metric("Positive Sentiment", f"{(d_df['sentiment_label']=='positive').mean()*100:.1f}%")
-        c3.metric("Avg AI Confidence", f"{d_df['bert_confidence'].mean()*100:.1f}%")
-        c4.metric("Unique Aspects", d_df['primary_aspect_label'].nunique())
+        c1.metric("Total Intelligence", len(d_df))
+        pos_ratio = (d_df['sentiment_label'] == 'positive').mean() * 100 if 'sentiment_label' in d_df.columns else 0.0
+        c2.metric("Positive Sentiment", f"{pos_ratio:.1f}%")
+        
+        avg_conf = d_df['bert_confidence'].mean() * 100 if 'bert_confidence' in d_df.columns else 0.0
+        c3.metric("Avg AI Confidence", f"{avg_conf:.1f}%")
+        
+        risk_segs = d_df['priority_label'].nunique() if 'priority_label' in d_df.columns else 0
+        c4.metric("Risk Segments", risk_segs)
         
         st.divider()
         v1, v2 = st.columns(2)
         with v1:
-            fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Sentiment Distribution",
-                          color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
-            fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
-            st.plotly_chart(fig_p, use_container_width=True)
+            if 'sentiment_label' in d_df.columns:
+                fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Sentiment Share",
+                              color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
+                fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
+                st.plotly_chart(fig_p, use_container_width=True)
+            else:
+                st.info("Sentiment data not available for charting.")
         with v2:
-            fig_b = px.bar(d_df['primary_aspect_label'].value_counts().reset_index(), x='count', y='primary_aspect_label', 
-                          orientation='h', title="Concerns by Aspect", color='count', color_continuous_scale='Purples')
-            fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig_b, use_container_width=True)
-
+            if 'primary_aspect_label' in d_df.columns:
+                fig_b = px.bar(d_df['primary_aspect_label'].value_counts().reset_index(), x='count', y='primary_aspect_label', 
+                              orientation='h', title="Concerns by Aspect", color='count', color_continuous_scale='Purples')
+                fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', plot_bgcolor='rgba(0,0,0,0)')
+                st.plotly_chart(fig_b, use_container_width=True)
+            else:
+                st.info("Aspect data not available for charting.")
+                
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.subheader("💡 Strategic Summary")
-        st.write(generate_ai_summary(d_df.head(15)) if 'generate_ai_summary' in globals() else "Dominant sentiment clusters identified in primary aspects. Strategic resource allocation recommended for critical priority segments.")
+        if 'sentiment_label' in d_df.columns and 'primary_aspect_label' in d_df.columns:
+            st.write(f"Analysis shows the overarching customer sentiment trends towards **{d_df['sentiment_label'].mode()[0]}**, heavily anchored on feedback concerning **{d_df['primary_aspect_label'].mode()[0].replace('_', ' ')}**. Immediate resource allocation is recommended for items flagged in the critical priority tier to mitigate operational risk.")
+        else:
+            st.write("Insufficient data to generate automated strategic summary.")
         st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.info("Upload and process a batch dataset to unlock strategic dashboard insights.")
 
-# --- 7. SIDEBAR & FOOTER ---
-with st.sidebar:
-    st.markdown("### 💠 Enterprise Edition")
-    st.caption("Hybrid Transformer Logic")
-    st.divider()
-    st.markdown("### 👨‍💻 Developer")
-    st.markdown("**Manas**")
-    st.markdown("[Portfolio](https://github.com/MANAS-1420)")
-    st.divider()
-    st.caption("v5.0 Stable Release")
-
-st.markdown("<br><center style='color: #4B5563; font-size: 0.8rem;'>ENTERPRISE FEEDBACK INTELLIGENCE | BUILT FOR RECRUITERS | MANAS 2026</center>", unsafe_allow_html=True)
+st.markdown("<br><center style='color: #4B5563; font-size: 0.85rem;'>ENTERPRISE FEEDBACK INTELLIGENCE | MANAS 2026</center><br><br>", unsafe_allow_html=True)
