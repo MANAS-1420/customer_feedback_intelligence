@@ -1,7 +1,18 @@
+# UI and Dashboard
 streamlit
+
+# Data Manipulation
 pandas
+openpyxl
+
+# Visualization
 plotly
+
+# Machine Learning & NLP
 transformers
 torch
-sentencepiece
-openpyxl
+tokenizers
+huggingface-hub
+
+# Utilities
+unicodedata2
