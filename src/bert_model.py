@@ -1,54 +1,34 @@
 import streamlit as st
 from transformers import pipeline
+import google.generativeai as genai
 
-@st.cache_resource(show_spinner="Loading AI Sentiment Model...")
-def get_sentiment_model():
-    """
-    Loads and caches the BERT model. 
-    @st.cache_resource ensures the model stays in memory across 
-    different user interactions/reruns.
-    """
-    try:
-        sentiment_pipeline = pipeline(
-            "sentiment-analysis",
-            model="nlptown/bert-base-multilingual-uncased-sentiment"
-        )
-        return sentiment_pipeline
-    except Exception as e:
-        st.error(f"Error loading BERT model: {e}")
-        return None
+# BERT Model Caching
+@st.cache_resource(show_spinner="Initializing Neural Engine...")
+def get_bert_pipeline():
+    return pipeline("sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment")
 
 def bert_sentiment(text: str):
-    """
-    Analyzes text and returns a sentiment ID (0, 1, 2) and confidence score.
-    Mapping:
-    1-2 Stars -> 0 (Negative)
-    3 Stars   -> 1 (Neutral)
-    4-5 Stars -> 2 (Positive)
-    """
-    if not text or len(text.strip()) == 0:
-        return 1, 0.0
-
     try:
-        model = get_sentiment_model()
-        if model is None:
-            return 1, 0.5  # Default to neutral if model fails
-            
-        # BERT has a 512 token limit; we truncate safely
-        result = model(text[:512])[0]
-        label = result["label"]  # Format: "1 star", "5 stars", etc.
-        score = float(result["score"])
+        model = get_bert_pipeline()
+        res = model(text[:512])[0]
+        rating = int(res["label"].split()[0])
+        score = float(res["score"])
+        if rating <= 2: return 0, score
+        if rating == 3: return 1, score
+        return 2, score
+    except: return 1, 0.5
 
-        # Extract numerical rating from label string
-        rating = int(label.split()[0])
+# Gemini AI Executive Summary
+genai.configure(api_key="AIzaSyAm2_CCjgqGcOPgPwb64hyP71BAnZD45bU")
 
-        if rating <= 2:
-            return 0, score
-        elif rating == 3:
-            return 1, score
-        else:
-            return 2, score
-            
-    except Exception:
-        # Fallback to neutral on any unexpected error
-        return 1, 0.50
+@st.cache_data(ttl=3600)
+def generate_ai_summary(df_subset):
+    """Generates a high-level business summary using Gemini."""
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        context = df_subset[['Review', 'sentiment_label', 'primary_aspect_label']].to_string()
+        prompt = f"Analyze these customer reviews and provide a 3-bullet point executive summary for a manager. Focus on the biggest problem, the main sentiment, and one actionable recommendation: \n\n{context}"
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"AI Summary unavailable: {str(e)}"
