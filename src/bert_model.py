@@ -36,7 +36,7 @@ def generate_ai_summary(df_subset):
             if 'generateContent' in m.supported_generation_methods:
                 available_models.append(m.name)
                 
-        if not available_models: return "AI Summary unavailable: No generative models found."
+        if not available_models: return "AI Summary unavailable."
             
         target_model = available_models[0]
         for m_name in available_models:
