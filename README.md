@@ -8,7 +8,7 @@
 ![NLP](https://img.shields.io/badge/NLP-ABSA_%7C_Hinglish-10B981)
 
 
-**Live App / Demo:** [Insert Your Streamlit Cloud Link Here]
+**Live App / Demo:** [https://customerfeedbackintelligence-wtoqs5nd8tzmjjjd8efsar.streamlit.app/]
 
 
 ## 🚀 Overview
