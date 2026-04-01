@@ -1,16 +1,36 @@
-# Inside src/bert_model.py
+# src/bert_model.py
+import streamlit as st
+from transformers import pipeline
+import google.generativeai as genai
+
+@st.cache_resource(show_spinner=False)
+def load_sentiment_model():
+    try:
+        return pipeline("sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment")
+    except Exception:
+        return None
+
+def get_bert_sentiment(text: str):
+    model = load_sentiment_model()
+    if not model or not text.strip(): return "neutral", 0.0
+    try:
+        result = model(text[:512])[0]
+        stars = int(result['label'].split()[0])
+        if stars <= 2: return "negative", result['score']
+        if stars == 3: return "neutral", result['score']
+        return "positive", result['score']
+    except Exception: 
+        return "neutral", 0.0
 
 @st.cache_data(ttl=3600)
 def generate_ai_summary(df_subset):
     try:
-        # 🔒 SECURE WAY: Pulls the key from Streamlit Secrets, NOT from the code
-        api_key = st.secrets["AIzaSyBz6_6-r-aFQGKzmCXw_spwexoQFMmk3jM"]
+        api_key = st.secrets["GEMINI_API_KEY"]
         genai.configure(api_key=api_key)
         
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
         prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
         
-        # DYNAMIC MODEL FINDER
         available_models = []
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
