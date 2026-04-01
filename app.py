@@ -38,6 +38,9 @@ st.markdown("""
     div.stButton > button { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; padding: 14px 24px !important; border-radius: 16px !important; font-weight: 700 !important; width: 100%; transition: transform 0.2s, box-shadow 0.2s !important; }
     div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
     [data-testid="stFileUploadDropzone"] { background-color: rgba(31, 41, 55, 0.5) !important; border: 2px dashed #374151 !important; border-radius: 16px !important; }
+    
+    /* ABSA Mini Cards */
+    .absa-card { background: rgba(255,255,255,0.02); border-left: 3px solid #6366F1; padding: 15px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,10 +49,10 @@ st.markdown("""
 # ==========================================
 with st.sidebar:
     st.markdown("### 💠 Enterprise Edition")
-    st.caption("Hybrid Transformer & Rule Logic")
+    st.caption("Aspect-Based Sentiment Analysis (ABSA)")
     st.divider()
     st.markdown("**Engine Capabilities:**")
-    st.markdown("- Multilingual NLP (EN, HI, HN)\n- Hierarchical Taxonomy\n- Regex Intelligence\n- Actionable Priority Scoring")
+    st.markdown("- Clause-level Splitting\n- Multilingual NLP (EN, HI, HN)\n- Hierarchical Taxonomy\n- Actionable Priority Scoring")
 
 st.markdown("""
 <div class="custom-nav">
@@ -84,12 +87,12 @@ with tab1:
     with col_l:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
-        raw_text = st.text_area("Review Input", height=240, placeholder="Example: ek dum ghatiya product...", label_visibility="collapsed")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Delivery was fast, but the product is completely broken.", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         if c1.button("EXECUTE ANALYSIS"):
             if raw_text.strip():
-                with st.spinner("Decoding sentiment & hierarchy..."): st.session_state.single_res = analyze_single(raw_text)
+                with st.spinner("Executing Aspect-Based Splitting..."): st.session_state.single_res = analyze_single(raw_text)
         if c2.button("CLEAR"):
             st.session_state.single_res = None
             st.rerun()
@@ -99,7 +102,7 @@ with tab1:
         if "single_res" in st.session_state and st.session_state.single_res:
             res = st.session_state.single_res
             st.markdown('<div class="block-card">', unsafe_allow_html=True)
-            st.markdown("### 🛡️ Intelligence Output")
+            st.markdown("### 🛡️ Dominant Intelligence Output")
             
             k1, k2, k3 = st.columns(3)
             with k1: render_kpi("Priority", str(res.get('priority_label', 'N/A')).upper())
@@ -107,28 +110,29 @@ with tab1:
             with k3: render_kpi("NPS Profile", str(res.get('nps_type', 'Passive')))
             
             st.markdown("<br>", unsafe_allow_html=True)
-            st.write(f"**Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`")
-            st.write(f"**Subcategory:** `{str(res.get('subcategory_label', 'N/A'))}`")
-            
-            m1, m2, m3 = st.columns(3)
-            m1.write(f"**Emotion:** `{str(res.get('emotion_label', 'N/A'))}`")
-            m2.write(f"**Intent:** `{str(res.get('customer_intent_label', 'N/A'))}`")
-            m3.write(f"**AI Conf:** `{float(res.get('bert_confidence', 0))*100:.1f}%`")
+            st.write(f"**Primary Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`")
+            st.write(f"**Subcategory Threat:** `{str(res.get('subcategory_label', 'N/A'))}`")
             
             st.divider()
-            d1, d2 = st.columns(2)
-            with d1:
-                st.write("**Regex & Signal Flags:**")
-                st.markdown(f"- **Mixed Feedback:** {bool_badge(res.get('mixed_feedback', False))}", unsafe_allow_html=True)
-                st.markdown(f"- **Urgent Language:** {bool_badge(res.get('urgent', False))}", unsafe_allow_html=True)
-                st.markdown(f"- **Strong Negative:** {bool_badge(res.get('strong_negative', False))}", unsafe_allow_html=True)
-            with d2:
-                st.write("**Explainability:**")
-                kw = res.get('matched_keywords', "")
-                if kw and kw != "None":
-                    st.markdown(" ".join([f'<span style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin: 2px; display: inline-block; color: #A5B4FC;">{k}</span>' for k in kw.split(", ")]), unsafe_allow_html=True)
-                else: st.caption("No specific rule-based keywords triggered.")
+            st.markdown("### 🔍 Aspect-Based Breakdown (Clauses)")
+            # ABSA UI Reveal
+            if 'absa_breakdown' in res and res['absa_breakdown']:
+                for i, clause in enumerate(res['absa_breakdown']):
+                    c_sent = clause['sentiment'].upper()
+                    color = "#10B981" if c_sent == "POSITIVE" else "#EF4444" if c_sent == "NEGATIVE" else "#6B7280"
+                    st.markdown(f"""
+                    <div class="absa-card">
+                        <div style="color: #9CA3AF; font-size: 0.8rem; margin-bottom: 5px;">Clause {i+1}</div>
+                        <div style="font-weight: 600; margin-bottom: 8px;">"{clause['clause_text']}"</div>
+                        <span style="color: {color}; font-weight: 700; font-size: 0.8rem;">{c_sent}</span> 
+                        <span style="color: #6B7280;">•</span> 
+                        <span style="font-size: 0.8rem; color: #A5B4FC;">{clause['subcategory'].replace('_', ' ').title()}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.caption("Review analyzed as a single cohesive block.")
                 
+            st.markdown("<br>", unsafe_allow_html=True)
             st.info(f"**Action Recommendation:** {res.get('action_recommendation', 'Log for standard reporting.')}")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
@@ -147,7 +151,6 @@ with tab2:
             if st.button("PROCESS DATASET"):
                 start = time.time()
                 with st.spinner("Executing Batch Intelligence..."):
-                    # CRASH-PROOF TUPLE UNPACKING
                     processed_res = analyze_dataframe(df_input, target_col)
                     if isinstance(processed_res, tuple) and len(processed_res) == 2:
                         st.session_state.batch_data = processed_res[0]
@@ -191,7 +194,7 @@ with tab3:
         v1, v2 = st.columns(2)
         with v1:
             if 'sentiment_label' in d_df.columns:
-                fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Sentiment Share", color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
+                fig_p = px.pie(d_df, names='sentiment_label', hole=0.7, title="Dominant Sentiment Share", color_discrete_sequence=['#10B981', '#6B7280', '#EF4444'])
                 fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
                 st.plotly_chart(fig_p, use_container_width=True)
                 
@@ -199,7 +202,7 @@ with tab3:
             if 'primary_aspect_label' in d_df.columns and 'subcategory_label' in d_df.columns:
                 fig_s = px.sunburst(d_df, path=['primary_aspect_label', 'subcategory_label'], color='sentiment_label', 
                                     color_discrete_map={'positive': '#10B981', 'neutral': '#6B7280', 'negative': '#EF4444'},
-                                    title="Hierarchical Issue Root Cause Analysis")
+                                    title="Hierarchical Threat Root Cause Analysis")
                 fig_s.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='white', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=40, l=0, r=0, b=0))
                 st.plotly_chart(fig_s, use_container_width=True)
                 
