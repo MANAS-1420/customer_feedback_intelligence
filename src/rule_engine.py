@@ -1,3 +1,87 @@
+Skip to content
+MANAS-1420
+customer_feedback_intelligence
+Repository navigation
+Code
+Issues
+Pull requests
+Actions
+Projects
+Wiki
+Security and quality
+1
+ (1)
+Insights
+Settings
+Files
+Go to file
+t
+src
+__init__.py
+bert_model.py
+config.py
+pipeline.py
+rule_engine.py
+utils.py
+.gitignore
+README.md
+app.py
+requirements.txt
+customer_feedback_intelligence/src
+/
+rule_engine.py
+in
+main
+
+Edit
+
+Preview
+Indent mode
+
+Spaces
+Indent size
+
+4
+Line wrap mode
+
+No wrap
+Editing rule_engine.py file contents
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
 # src/rule_engine.py
 
 # ==========================================
@@ -34,96 +118,5 @@ TAXONOMY_KEYWORDS = {
     ("payment_billing", "fraud_suspicion"): ["fraud transaction", "scam payment", "paise chori", "dhokha fraud", "धोखाधड़ी"],
 
     # LOAN FINANCE (Anchored Finance)
-    ("loan_finance", "loan_approval_delay"): ["loan approval delay", "loan pending", "approval delay", "loan approve nahi hua", "loan pass nahi hua", "loan approval", "लोन में देरी"],
-    ("loan_finance", "loan_rejected"): ["loan rejected", "loan declined", "loan cancel", "loan mana kar diya", "लोन रिजेक्ट"],
-    ("loan_finance", "interest_rate_issue"): ["high interest rate", "roi issue", "zyada byaj", "interest rate", "ब्याज दर"],
-    ("loan_finance", "loan_disbursal_delay"): ["loan disbursal delay", "disbursement pending", "loan amount not credited", "loan ka paisa nahi aaya", "लोन का पैसा"],
-    ("loan_finance", "emi_calculation_issue"): ["emi calculation wrong", "wrong emi", "emi issue", "galat emi", "गलत ईएमआई"],
-    ("loan_finance", "foreclosure_issue"): ["foreclosure", "prepayment", "close loan", "loan band karna", "लोन बंद"],
-    ("loan_finance", "penalty_charges"): ["penalty", "late fee", "bounce charge", "loan penalty", "जुर्माना"],
-    ("loan_finance", "documentation_issue"): ["document", "file", "paperwork", "pan card", "aadhaar", "दस्तावेज़"],
-    ("loan_finance", "kyc_issue"): ["kyc pending", "video kyc", "kyc fail", "kyc nahi ho raha", "केवाईसी"],
-
-    # CUSTOMER SERVICE (Anchored Support)
-    ("customer_service", "support_unresponsive"): ["customer care no response", "support not answering", "koi jawab nahi de raha", "phone nahi uthate", "कोई जवाब नहीं"],
-    ("customer_service", "slow_response"): ["slow reply", "late response from support", "bahut time lagate reply", "देर से जवाब"],
-    ("customer_service", "helpful_support"): ["helpful support", "good support", "solved my issue", "madad ki", "मददगार सपोर्ट"],
-    ("customer_service", "rude_behavior"): ["rude staff", "abusive support", "customer care arrogant", "badtameezi se baat ki", "कस्टमर केयर बदतमीज़"],
-    ("customer_service", "issue_not_resolved"): ["issue unresolved", "not helping", "problem still there", "kuch solve nahi hua support se", "समस्या हल नहीं हुई"],
-    ("customer_service", "call_drop_issue"): ["call disconnected", "cut the call", "phone kaat diya", "beech me phone kaata", "फ़ोन काट दिया"],
-    ("customer_service", "chatbot_issue"): ["useless bot", "bot not helping", "stupid chatbot", "bot samajh nahi raha", "बॉट"],
-
-    # TECHNICAL APP WEBSITE (Anchored Tech)
-    ("technical_app_website", "app_crash"): ["app crash", "app closes", "app band ho jata hai", "ऐप क्रैश"],
-    ("technical_app_website", "login_issue"): ["cannot login", "login failed", "login nahi ho raha", "sign in problem", "लॉग इन नहीं हो रहा"],
-    ("technical_app_website", "otp_issue"): ["otp not received", "otp problem", "otp nahi aa raha", "ओटीपी नहीं आ रहा"],
-    ("technical_app_website", "payment_gateway_error"): ["payment gateway error", "gateway crash", "payment page stuck", "पेमेंट गेटवे"],
-    ("technical_app_website", "slow_app"): ["app is slow", "app lag", "hang", "bahut slow chal raha", "app hang ho raha", "ऐप धीमा"],
-    ("technical_app_website", "website_down"): ["website down", "site down", "server error", "404", "website nahi chal rahi", "वेबसाइट नहीं चल रही"],
-
-    # RETURNS REFUND CANCELLATION (Anchored Return)
-    ("returns_refund_cancellation", "return_rejected"): ["return denied", "rejected my return", "return cancel kar diya", "wapas nahi le rahe", "रिटर्न रिजेक्ट"],
-    ("returns_refund_cancellation", "return_pickup_delay"): ["pickup delayed", "return pickup pending", "pickup nahi hua", "koi pickup lene nahi aaya", "पिकअप नहीं हुआ"],
-    ("returns_refund_cancellation", "cancellation_issue"): ["cannot cancel order", "cancel nahi ho raha", "cancellation option gayab", "ऑर्डर रद्द नहीं हो रहा"],
-
-    # FRAUD SECURITY
-    ("fraud_security", "scam_alert"): ["scam", "fraud", "fake company", "chor", "lutera", "scammer", "घोटाला", "फ्रॉड"],
-    ("fraud_security", "unauthorized_transaction"): ["hacked", "did not authorize", "apne aap paise kat gaye", "hacker", "अवैध लेन-देन"],
-    ("fraud_security", "data_privacy_issue"): ["selling data", "privacy", "spam calls", "mera data leak", "डेटा लीक"],
-
-    # NEGATIVE INTENT
-    ("negative_intent", "angry_customer"): ["angry", "terrible", "worst", "hate", "gussa", "bekar", "ghatiya", "गुस्सा"],
-    ("negative_intent", "very_angry_customer"): ["fucking", "bullshit", "bastard", "bhenchod", "madarchod", "gali", "sue", "consumer court", "गाली"],
-    ("negative_intent", "threatening_to_leave"): ["will uninstall", "delete app", "never use again", "uninstalling", "app delete kar raha hu", "ऐप डिलीट"],
-
-    # POSITIVE FEEDBACK
-    ("positive_feedback", "fast_service"): ["quick", "very fast", "lightning fast", "bahut tez", "jaldi kaam", "तेज़ सर्विस"],
-    ("positive_feedback", "excellent_product"): ["superb", "excellent", "amazing", "best", "ek number", "zabardast", "लाजवाब प्रोडक्ट"],
-    
-    # NEUTRAL INFORMATIONAL
-    ("neutral_informational", "status_check"): ["what is status", "track", "kab aayega", "update kya hai", "स्टेटस"],
-    ("neutral_informational", "information_request"): ["how to use", "need help", "guide me", "kaise karna hai", "jankari", "जानकारी"]
-}
-
-# General Fallbacks
-for key in ["pricing_value", "order_management", "customer_experience", "suggestions_feedback"]:
-    TAXONOMY_KEYWORDS[(key, "general_issue")] = [key.replace("_", " ")]
-
-# ==========================================
-# B. CORE EMOTION & INTENT
-# ==========================================
-EMOTION_KEYWORDS = {
-    "Very Angry": ["scam", "fraud", "consumer court", "chor", "fucking", "hell", "sue", "lutera"],
-    "Angry": ["terrible", "worst", "pathetic", "ghatiya", "bekar", "kachra", "bakwas", "angry", "rubbish"],
-    "Frustrated": ["waiting", "tired", "annoyed", "pareshan", "dimag kharab", "again", "frustrated", "irritating"],
-    "Happy": ["nice", "good", "acha", "badiya", "khush", "happy", "smile"],
-    "Satisfied": ["resolved", "solved", "fine", "okay", "theek", "kaam ho gaya", "satisfied"],
-    "Calm": []
-}
-
-CUSTOMER_INTENT_KEYWORDS = {
-    "Complaint": ["issue", "problem", "not working", "dikkat", "shikayat", "kharab", "fail", "complaint", "fix"],
-    "Delay": ["late", "delay", "waiting", "deri", "pending"],
-    "Praise": ["great", "best", "superb", "thank you", "shukriya", "praise", "kudos"],
-    "Enquiry": ["how", "status", "kab", "kaha", "guide", "query", "help"],
-    "Negative Tone": ["bad", "poor", "sad", "disappointed"],
-    "Positive Tone": ["awesome", "love", "mast", "perfect"],
-    "Neutral Tone": []
-}
-
-# ==========================================
-# C. SENTIMENT OVERRIDES & FLAGS
-# ==========================================
-ASPECT_SENT_NEG_KW = [
-    "not", "bad", "fail", "worst", "kharab", "bekar", "nahi", "mat", "poor", "hate", "terrible", "issue", "problem", "dont", "cant",
-    "ghatiya", "kachra", "bakwas", "pathetic", "fraud", "scam", "useless", "garbage", "rubbish", "slow", "late", "delay", "rude",
-    "नहीं", "मत", "खराब", "बुरा", "बेकार", "घटिया", "कचरा", "बकवास"
-]
-ASPECT_SENT_POS_KW = [
-    "good", "great", "excellent", "fast", "best", "mast", "acha", "smooth", "awesome", "perfect", "love", "badiya", "zabardast",
-    "superb", "amazing", "fantastic", "polite", "helpful",
-    "अच्छा", "बढ़िया", "शानदार", "मस्त", "बेहतरीन"
-]
-MIXED_FEEDBACK_KW = ["but", "however", "although", "lekin", "par", "magar", "phir bhi", "though", "yet"]
-URGENT_KW = ["urgent", "asap", "immediately", "jaldi", "turant", "abhi", "fast", "priority"]
-STRONG_NEG_PHRASES = ["worst", "pathetic", "fraud", "scam", "waste of money", "paisa barbad", "never buy", "useless", "ghatiya"]
+Use Control + Shift + m to toggle the tab key moving focus. Alternatively, use esc then tab to move to the next interactive element on the page.
+ 
