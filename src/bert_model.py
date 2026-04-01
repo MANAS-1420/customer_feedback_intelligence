@@ -25,21 +25,34 @@ def get_bert_sentiment(text: str):
 @st.cache_data(ttl=3600)
 def generate_ai_summary(df_subset):
     try:
-        genai.configure(api_key="AIzaSyAm2_CCjgqGcOPgPwb64hyP71BAnZD45bU")
+        # UPDATED API KEY
+        genai.configure(api_key="AIzaSyBz6_6-r-aFQGKzmCXw_spwexoQFMmk3jM")
         
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
         prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
         
-        # Primary Attempt: The standard 1.5 Flash model
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            # Fallback Attempt: The 1.5 Pro model
-            model_pro = genai.GenerativeModel('gemini-1.5-pro')
-            response = model_pro.generate_content(prompt)
-            return response.text
+        # DYNAMIC MODEL FINDER: Ask the API exactly what models are available
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+                
+        if not available_models:
+            return "AI Summary unavailable: No generative models accessible with this API key."
             
-    except Exception as fatal_error:
-        return f"AI Summary unavailable. Google API Error: {str(fatal_error)}"
+        # Prioritize 'flash' (fastest) or 'pro', otherwise just pick the first available text model
+        target_model = available_models[0]
+        for m_name in available_models:
+            if 'flash' in m_name.lower():
+                target_model = m_name
+                break
+            elif 'pro' in m_name.lower() and 'vision' not in m_name.lower():
+                target_model = m_name
+
+        # Generate using the dynamically found model
+        model = genai.GenerativeModel(target_model)
+        response = model.generate_content(prompt)
+        return response.text
+            
+    except Exception as e:
+        return f"AI Summary unavailable. Diagnostics: {str(e)}"
