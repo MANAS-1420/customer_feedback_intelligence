@@ -62,24 +62,29 @@ def analyze_single(review_text: str) -> dict:
         emotion = get_best_match(norm_text, EMOTION_KEYWORDS, "Calm")
         intent = get_best_match(norm_text, CUSTOMER_INTENT_KEYWORDS, "Neutral Tone")
         
+        # --- SENTIMENT CROSS-CHECK LOGIC ---
         rule_sentiment = "neutral"
-        if any_hit(norm_text, ASPECT_SENT_NEG_KW): rule_sentiment = "negative"
-        elif any_hit(norm_text, ASPECT_SENT_POS_KW): rule_sentiment = "positive"
+        if any_hit(norm_text, ASPECT_SENT_NEG_KW) or emotion in ["Very Angry", "Angry", "Frustrated"] or intent in ["Complaint", "Negative Tone"]:
+            rule_sentiment = "negative"
+        elif any_hit(norm_text, ASPECT_SENT_POS_KW) or emotion in ["Happy", "Satisfied"] or intent in ["Praise", "Positive Tone"]:
+            rule_sentiment = "positive"
         
         bert_sent, bert_conf = get_bert_sentiment(raw_text)
         final_sentiment = bert_sent if bert_conf >= 0.60 else rule_sentiment
         sentiment_source = "BERT Pipeline" if bert_conf >= 0.60 else "Rule Engine"
             
-        # Fallback Correction Logic to reduce "neutral/general" dominance
+        # --- POST-SENTIMENT CORRECTION LOGIC ---
         if final_sentiment == "negative":
             if category == "neutral_informational":
                 if "delay" in norm_text: category, subcategory = "delivery_logistics", "delayed_delivery"
                 else: category, subcategory = "customer_experience", "overall_dissatisfaction"
-            if intent in ["Neutral Tone", "Positive Tone", "Praise"]: intent = "Complaint"
-            if emotion in ["Calm", "Happy", "Satisfied"]: emotion = "Frustrated"
+            if intent in ["Neutral Tone", "Positive Tone", "Praise", "Enquiry"]: 
+                intent = "Complaint" # Fix intent if missed by rule engine
+            if emotion in ["Calm", "Happy", "Satisfied"]: 
+                emotion = "Frustrated" # Fix emotion if missed
                 
         if final_sentiment == "positive":
-            if category == "neutral_informational" or category == "negative_intent":
+            if category in ["neutral_informational", "negative_intent"]:
                 category, subcategory = "positive_feedback", "great_experience"
             if intent in ["Negative Tone", "Complaint"]: intent = "Praise"
             if emotion in ["Calm", "Frustrated", "Angry", "Very Angry"]: emotion = "Satisfied"
@@ -93,11 +98,9 @@ def analyze_single(review_text: str) -> dict:
         nps_type = "Promoter" if final_sentiment == "positive" else ("Detractor" if final_sentiment == "negative" else "Passive")
         nps_score = 100 if nps_type == "Promoter" else (-100 if nps_type == "Detractor" else 0)
         
-        # Format labels clearly
         cat_label = category.replace("_", " ").title()
         subcat_label = subcategory.replace("_", " ").title()
         
-        # 26+ specific keys matching output request
         return {
             "Review": raw_text,
             "Sentiment": final_sentiment.capitalize(),
