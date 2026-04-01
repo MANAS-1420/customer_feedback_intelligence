@@ -1,28 +1,25 @@
+# src/utils.py
 import re
 import unicodedata
-from collections import Counter
 
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+")
-SPECIAL_PATTERN = re.compile(r"[^\w\s\u0900-\u097F]")
+NOISE_PATTERN = re.compile(r"[^\w\s\u0900-\u097F.,!?@+-]")
 SPACE_PATTERN = re.compile(r"\s+")
 
 def normalize(text: str) -> str:
-    if not isinstance(text, str) or text.strip() == "": return ""
-    t = unicodedata.normalize('NFKC', text).lower()
-    t = URL_PATTERN.sub(" ", t)
-    t = SPECIAL_PATTERN.sub(" ", t)
-    return SPACE_PATTERN.sub(" ", t).strip()
+    if not isinstance(text, str): return ""
+    text = unicodedata.normalize('NFKC', text).lower()
+    text = URL_PATTERN.sub(" ", text)
+    text = NOISE_PATTERN.sub(" ", text)
+    return SPACE_PATTERN.sub(" ", text).strip()
 
 def any_hit(text: str, keywords: list) -> bool:
-    return any(kw in text for kw in keywords if kw)
+    for kw in keywords:
+        if re.search(r'\b' + re.escape(kw) + r'\b', text): return True
+    return False
 
 def matched_keywords(text: str, keywords: list) -> list:
-    return list({kw for kw in keywords if kw and kw in text})
-
-def best_match_id(text: str, keywords_by_label: dict, labels: list, default_id: int) -> int:
-    scores = Counter()
-    for label in labels:
-        for kw in keywords_by_label.get(label, []):
-            if kw in text: scores[label] += 1
-    if not scores: return int(default_id)
-    return labels.index(scores.most_common(1)[0][0])
+    matches = []
+    for kw in keywords:
+        if re.search(r'\b' + re.escape(kw) + r'\b', text): matches.append(kw)
+    return list(set(matches))
