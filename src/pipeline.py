@@ -15,27 +15,20 @@ EMAIL_REGEX = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
 HINGLISH_CUES = ["hai", "nahi", "kya", "kar", "mein", "pe", "se", "ko", "bhi", "toh", "ka", "ki"]
 
 def get_best_hierarchy_match(text: str) -> tuple:
-    """Returns the best (Category, Subcategory) using Exponential Phrase Scoring."""
     max_hits = 0
     best_match = ("neutral_informational", "no_clear_sentiment")
-    
     for (cat, subcat), keywords in TAXONOMY_KEYWORDS.items():
         hits = 0
         for kw in keywords:
             if re.search(r'\b' + re.escape(kw) + r'\b', text):
-                # EXPONENTIAL SCORING:
-                # 1 word = 10 pts | 2 words = 40 pts | 3 words = 90 pts
                 word_count = len(kw.split())
                 hits += (word_count ** 2) * 10
-                
         if hits > max_hits:
             max_hits = hits
             best_match = (cat, subcat)
-            
     return best_match
 
 def get_best_match(text: str, keyword_dict: dict, fallback: str) -> str:
-    """Returns the best Emotion/Intent using Exponential Phrase Scoring."""
     max_hits = 0
     best_label = fallback
     for label, keywords in keyword_dict.items():
@@ -104,7 +97,7 @@ def analyze_single(review_text: str) -> dict:
         raw_text = str(review_text) if pd.notnull(review_text) else ""
         norm_text = normalize(raw_text)
         
-        if not norm_text: raise ValueError("Empty")
+        if not norm_text: raise ValueError("Empty text")
 
         has_phone = bool(PHONE_REGEX.search(raw_text))
         has_email = bool(EMAIL_REGEX.search(raw_text))
