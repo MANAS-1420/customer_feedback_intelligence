@@ -26,9 +26,19 @@ def get_bert_sentiment(text: str):
 def generate_ai_summary(df_subset):
     try:
         genai.configure(api_key="AIzaSyAm2_CCjgqGcOPgPwb64hyP71BAnZD45bU")
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
         prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
-        return model.generate_content(prompt).text
+        
+        # SMART FALLBACK: Tries latest flash, then falls back to stable pro
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception:
+            model = genai.GenerativeModel('gemini-pro')
+            response = model.generate_content(prompt)
+            return response.text
+            
     except Exception as e:
         return f"AI Summary unavailable: {str(e)}"
