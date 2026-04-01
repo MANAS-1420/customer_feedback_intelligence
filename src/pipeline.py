@@ -7,7 +7,7 @@ from src.rule_engine import (
     TAXONOMY_KEYWORDS, EMOTION_KEYWORDS, CUSTOMER_INTENT_KEYWORDS,
     ASPECT_SENT_NEG_KW, ASPECT_SENT_POS_KW, MIXED_FEEDBACK_KW, URGENT_KW, STRONG_NEG_PHRASES, NEGATED_NEGATIVE_PHRASES
 )
-from src.utils import normalize, any_hit, matched_keywords, split_into_clauses
+from src.utils import normalize, any_hit, matched_keywords, split_into_clauses, flexible_match
 from src.bert_model import get_bert_sentiment
 
 PHONE_REGEX = re.compile(r'\b\d{10}\b|\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b')
@@ -17,15 +17,11 @@ HINGLISH_CUES = ["hai", "nahi", "kya", "kar", "mein", "pe", "se", "ko", "bhi", "
 def get_best_hierarchy_match(text: str) -> tuple:
     max_hits = 0
     best_match = ("neutral_informational", "no_clear_sentiment")
-    text_padded = f" {text.lower()} "
     for (cat, subcat), keywords in TAXONOMY_KEYWORDS.items():
         hits = 0
         for kw in keywords:
-            kw_lower = kw.lower()
-            if len(kw_lower.split()) > 1:
-                if kw_lower in text.lower(): hits += (len(kw_lower.split()) ** 2) * 10
-            else:
-                if f" {kw_lower} " in text_padded: hits += 10
+            if flexible_match(kw, text):
+                hits += (len(kw.split()) ** 2) * 10
         if hits > max_hits:
             max_hits = hits
             best_match = (cat, subcat)
@@ -34,15 +30,11 @@ def get_best_hierarchy_match(text: str) -> tuple:
 def get_best_match(text: str, keyword_dict: dict, fallback: str) -> str:
     max_hits = 0
     best_label = fallback
-    text_padded = f" {text.lower()} "
     for label, keywords in keyword_dict.items():
         hits = 0
         for kw in keywords:
-            kw_lower = kw.lower()
-            if len(kw_lower.split()) > 1:
-                if kw_lower in text.lower(): hits += (len(kw_lower.split()) ** 2) * 10
-            else:
-                if f" {kw_lower} " in text_padded: hits += 10
+            if flexible_match(kw, text):
+                hits += (len(kw.split()) ** 2) * 10
         if hits > max_hits:
             max_hits = hits
             best_label = label
@@ -53,7 +45,7 @@ def compute_priority_score(text: str, sentiment: str, cat: str, subcat: str, is_
     if any_hit(text, EMOTION_KEYWORDS["Very Angry"]): score += 50
     if cat in ["payment_billing", "fraud_security"]: score += 40
     if subcat in ["double_charge", "payment_deducted_not_processed", "fake_delivery_update", "recovery_agent_issue", "legal_threat", "social_media_threat"]: score += 40
-    if subcat in ["product_quality_poor", "delivery_agent_behavior_rude"]: score += 30
+    if subcat in ["product_quality_poor", "delivery_agent_behavior_rude", "product_defect"]: score += 30
     
     if is_urgent: score += 20
     if is_strong_neg: score += 20
