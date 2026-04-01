@@ -1,39 +1,34 @@
+# src/bert_model.py
 import streamlit as st
 from transformers import pipeline
 import google.generativeai as genai
 
 @st.cache_resource(show_spinner=False)
-def get_bert_pipeline():
+def load_sentiment_model():
     try:
         return pipeline("sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment")
     except Exception:
         return None
 
-def bert_sentiment(text: str):
-    model = get_bert_pipeline()
-    if not model:
-        return 1, 0.5 # Default to neutral if model fails to load
+def get_bert_sentiment(text: str):
+    model = load_sentiment_model()
+    if not model or not text.strip(): return "neutral", 0.0
     try:
-        res = model(text[:512])[0]
-        rating = int(res["label"].split()[0])
-        score = float(res["score"])
-        if rating <= 2: return 0, score # Negative
-        if rating == 3: return 1, score # Neutral
-        return 2, score # Positive
+        result = model(text[:512])[0]
+        stars = int(result['label'].split()[0])
+        if stars <= 2: return "negative", result['score']
+        if stars == 3: return "neutral", result['score']
+        return "positive", result['score']
     except Exception: 
-        return 1, 0.5
+        return "neutral", 0.0
 
 @st.cache_data(ttl=3600)
 def generate_ai_summary(df_subset):
-    """Generates a high-level business summary using Gemini."""
     try:
-        # Utilizing Streamlit secrets if available, else fallback
-        api_key = st.secrets.get("GEMINI_API_KEY", "AIzaSyAm2_CCjgqGcOPgPwb64hyP71BAnZD45bU")
-        genai.configure(api_key=api_key)
+        genai.configure(api_key="AIzaSyAm2_CCjgqGcOPgPwb64hyP71BAnZD45bU")
         model = genai.GenerativeModel('gemini-1.5-flash')
-        context = df_subset[['sentiment_label', 'primary_aspect_label']].to_string()
-        prompt = f"Analyze these customer review classifications and provide a 3-bullet point executive summary for a manager. Focus on the biggest problem, the main sentiment, and one actionable recommendation. Be concise and professional: \n\n{context}"
-        response = model.generate_content(prompt)
-        return response.text
+        context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
+        prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
+        return model.generate_content(prompt).text
     except Exception as e:
-        return "AI Summary is currently unavailable. Please check API configuration or connection."
+        return f"AI Summary unavailable: {str(e)}"
