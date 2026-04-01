@@ -22,9 +22,19 @@ st.set_page_config(page_title="Customer Feedback Intelligence", page_icon="💠"
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-    html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; color: #F3F4F6; }
     
-    .stApp { background-color: #030712; background-image: radial-gradient(circle at 2px 2px, rgba(99, 102, 241, 0.05) 1px, transparent 0); background-size: 40px 40px; }
+    /* SAFE FONT OVERRIDE: Applies to the app container but spares the Material Icons */
+    .stApp { 
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #030712; 
+        background-image: radial-gradient(circle at 2px 2px, rgba(99, 102, 241, 0.05) 1px, transparent 0); 
+        background-size: 40px 40px; 
+    }
+    
+    /* Make the top header transparent instead of hiding it so the sidebar toggle works cleanly */
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+    }
     
     /* Clean Custom Nav */
     .custom-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; background: rgba(31, 41, 55, 0.4); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 2rem;}
@@ -38,7 +48,7 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { background-color: #1F2937; border-radius: 14px; color: #9CA3AF; padding: 12px 32px; font-weight: 600; border: 1px solid transparent; transition: all 0.3s ease; }
     .stTabs [aria-selected="true"] { background: #374151 !important; border: 1px solid #6366F1 !important; color: white !important; }
     
-    /* Safely target ONLY primary action buttons, leaving uploader alone */
+    /* Target ONLY primary action buttons to avoid breaking the file uploader button */
     div[data-testid="stButton"] > button[kind="primary"] { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; font-weight: 700 !important; transition: transform 0.2s, box-shadow 0.2s !important; }
     div[data-testid="stButton"] > button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
     
@@ -64,7 +74,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if not PIPELINE_CONNECTED: st.error("⚠️ `src.pipeline` not found.")
+if not PIPELINE_CONNECTED: st.error("⚠️ `src.pipeline` not found. Running in offline/mock mode.")
 
 def render_kpi(label, value):
     st.markdown(f'<div class="kpi-container"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div></div>', unsafe_allow_html=True)
