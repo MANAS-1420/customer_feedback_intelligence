@@ -38,9 +38,6 @@ st.markdown("""
     div.stButton > button { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; padding: 14px 24px !important; border-radius: 16px !important; font-weight: 700 !important; width: 100%; transition: transform 0.2s, box-shadow 0.2s !important; }
     div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
     [data-testid="stFileUploadDropzone"] { background-color: rgba(31, 41, 55, 0.5) !important; border: 2px dashed #374151 !important; border-radius: 16px !important; }
-    
-    /* ABSA Mini Cards */
-    .absa-card { background: rgba(255,255,255,0.02); border-left: 3px solid #6366F1; padding: 15px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,10 +46,10 @@ st.markdown("""
 # ==========================================
 with st.sidebar:
     st.markdown("### 💠 Enterprise Edition")
-    st.caption("Aspect-Based Sentiment Analysis (ABSA)")
+    st.caption("Behavioral AI & Tone Analysis")
     st.divider()
-    st.markdown("**Engine Capabilities:**")
-    st.markdown("- Clause-level Splitting\n- Multilingual NLP (EN, HI, HN)\n- Hierarchical Taxonomy\n- Actionable Priority Scoring")
+    st.markdown("**Intelligence Layer:**")
+    st.markdown("- Psychological Churn Risk\n- Language Auto-Detect\n- Sarcasm Flagging\n- Tone Intensity Scoring")
 
 st.markdown("""
 <div class="custom-nav">
@@ -73,8 +70,11 @@ def get_review_col(df):
         if any(kw in col.lower() for kw in keywords): return col
     return df.columns[0] if len(df.columns) > 0 else None
 
-def bool_badge(val):
-    if val: return '<span style="background: rgba(16, 185, 129, 0.2); color: #10B981; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Yes</span>'
+def bool_badge(val, alert_red=False):
+    if val: 
+        color = "#EF4444" if alert_red else "#10B981"
+        bg = "rgba(239, 68, 68, 0.2)" if alert_red else "rgba(16, 185, 129, 0.2)"
+        return f'<span style="background: {bg}; color: {color}; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight:bold;">Yes</span>'
     return '<span style="background: rgba(107, 114, 128, 0.2); color: #9CA3AF; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">No</span>'
 
 # ==========================================
@@ -87,12 +87,12 @@ with tab1:
     with col_l:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
-        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Delivery was fast, but the product is completely broken.", label_visibility="collapsed")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: WHAT THE HELL!! Great product but your app is totally useless. Uninstalling right now.", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         if c1.button("EXECUTE ANALYSIS"):
             if raw_text.strip():
-                with st.spinner("Executing Aspect-Based Splitting..."): st.session_state.single_res = analyze_single(raw_text)
+                with st.spinner("Analyzing psychological markers..."): st.session_state.single_res = analyze_single(raw_text)
         if c2.button("CLEAR"):
             st.session_state.single_res = None
             st.rerun()
@@ -102,7 +102,7 @@ with tab1:
         if "single_res" in st.session_state and st.session_state.single_res:
             res = st.session_state.single_res
             st.markdown('<div class="block-card">', unsafe_allow_html=True)
-            st.markdown("### 🛡️ Dominant Intelligence Output")
+            st.markdown("### 🛡️ Intelligence Output")
             
             k1, k2, k3 = st.columns(3)
             with k1: render_kpi("Priority", str(res.get('priority_label', 'N/A')).upper())
@@ -110,33 +110,39 @@ with tab1:
             with k3: render_kpi("NPS Profile", str(res.get('nps_type', 'Passive')))
             
             st.markdown("<br>", unsafe_allow_html=True)
-            st.write(f"**Primary Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`")
-            st.write(f"**Subcategory Threat:** `{str(res.get('subcategory_label', 'N/A'))}`")
+            
+            # --- NEW: PSYCHOLOGICAL PROFILE ROW ---
+            st.markdown("#### 🧠 Psychological & Behavioral Profile")
+            m1, m2, m3, m4 = st.columns(4)
+            m1.write(f"**Emotion:** `{str(res.get('emotion_label', 'N/A'))}`")
+            m2.write(f"**Intent:** `{str(res.get('customer_intent_label', 'N/A'))}`")
+            m3.write(f"**Language:** `{str(res.get('language_detected', 'N/A'))}`")
+            m4.write(f"**Intensity:** `{res.get('tone_intensity_score', 0.0)}/10`")
             
             st.divider()
-            st.markdown("### 🔍 Aspect-Based Breakdown (Clauses)")
-            # ABSA UI Reveal
-            if 'absa_breakdown' in res and res['absa_breakdown']:
-                for i, clause in enumerate(res['absa_breakdown']):
-                    c_sent = clause['sentiment'].upper()
-                    color = "#10B981" if c_sent == "POSITIVE" else "#EF4444" if c_sent == "NEGATIVE" else "#6B7280"
-                    st.markdown(f"""
-                    <div class="absa-card">
-                        <div style="color: #9CA3AF; font-size: 0.8rem; margin-bottom: 5px;">Clause {i+1}</div>
-                        <div style="font-weight: 600; margin-bottom: 8px;">"{clause['clause_text']}"</div>
-                        <span style="color: {color}; font-weight: 700; font-size: 0.8rem;">{c_sent}</span> 
-                        <span style="color: #6B7280;">•</span> 
-                        <span style="font-size: 0.8rem; color: #A5B4FC;">{clause['subcategory'].replace('_', ' ').title()}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.caption("Review analyzed as a single cohesive block.")
+            
+            # --- TAXONOMY & FLAGS ---
+            st.write(f"**Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`  |  **Subcategory:** `{str(res.get('subcategory_label', 'N/A'))}`")
+            
+            d1, d2 = st.columns(2)
+            with d1:
+                st.write("**Risk & Signal Flags:**")
+                st.markdown(f"- **Churn Risk Detected:** {bool_badge(res.get('churn_risk', False), alert_red=True)}", unsafe_allow_html=True)
+                st.markdown(f"- **Sarcasm Suspected:** {bool_badge(res.get('sarcasm_suspected', False), alert_red=True)}", unsafe_allow_html=True)
+                st.markdown(f"- **Mixed Feedback:** {bool_badge(res.get('mixed_feedback', False))}", unsafe_allow_html=True)
+                st.markdown(f"- **Urgent Language:** {bool_badge(res.get('urgent', False), alert_red=True)}", unsafe_allow_html=True)
+            with d2:
+                st.write("**Diagnostics:**")
+                st.write(f"- **AI Conf:** `{float(res.get('bert_confidence', 0))*100:.1f}%`")
+                st.write(f"- **Score:** `{res.get('priority_score', 0)}/100`")
+                kw = res.get('matched_keywords', "")
+                if kw and kw != "None":
+                    st.markdown(" ".join([f'<span style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin: 2px; display: inline-block; color: #A5B4FC;">{k}</span>' for k in kw.split(", ")]), unsafe_allow_html=True)
                 
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.info(f"**Action Recommendation:** {res.get('action_recommendation', 'Log for standard reporting.')}")
+            st.info(f"**Automated Action:** {res.get('action_recommendation', 'Log for standard reporting.')}")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="block-card" style="height: 480px; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px dashed #1F2937;"><div><div style="font-size: 4rem; margin-bottom: 24px;">💠</div><h2 style="color: #6366F1; font-weight: 800;">Neural Standby</h2><p style="color: #9CA3AF; max-width: 320px;">Awaiting data input from terminal to begin the audit process.</p></div></div>', unsafe_allow_html=True)
+            st.markdown('<div class="block-card" style="height: 520px; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px dashed #1F2937;"><div><div style="font-size: 4rem; margin-bottom: 24px;">💠</div><h2 style="color: #6366F1; font-weight: 800;">Neural Standby</h2><p style="color: #9CA3AF; max-width: 320px;">Awaiting data input from terminal to begin the audit process.</p></div></div>', unsafe_allow_html=True)
 
 with tab2:
     st.markdown('<div class="block-card">', unsafe_allow_html=True)
@@ -187,7 +193,7 @@ with tab3:
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Total Intelligence", len(d_df))
         c2.metric("Net Promoter Score", int(round(((d_df['nps_type']=='Promoter').mean() - (d_df['nps_type']=='Detractor').mean())*100, 0)) if 'nps_type' in d_df.columns else 0)
-        c3.metric("Mixed Signals", len(d_df[d_df['mixed_feedback'] == True]) if 'mixed_feedback' in d_df.columns else 0)
+        c3.metric("High Churn Risk", st.session_state.meta.get('churn_risk_count', 0))
         c4.metric("Risk Segments", d_df['priority_label'].nunique() if 'priority_label' in d_df.columns else 0)
         
         st.divider()
