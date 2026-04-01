@@ -14,52 +14,33 @@ except ImportError:
     def analyze_single(text): return {"primary_aspect_label": "Error", "subcategory_label": "Offline", "sentiment_label": "neutral", "priority_label": "Low", "emotion_label": "N/A", "customer_intent_label": "N/A"}
     def analyze_dataframe(df, col): return df, {}
 
-# ==========================================
-# PAGE CONFIGURATION & CSS
-# ==========================================
 st.set_page_config(page_title="Customer Feedback Intelligence", page_icon="💠", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
     
-    /* SAFE FONT OVERRIDE: Applies to the app container but spares the Material Icons */
     .stApp { 
         font-family: 'Plus Jakarta Sans', sans-serif;
         background-color: #030712; 
         background-image: radial-gradient(circle at 2px 2px, rgba(99, 102, 241, 0.05) 1px, transparent 0); 
         background-size: 40px 40px; 
     }
-    
-    /* Make the top header transparent instead of hiding it so the sidebar toggle works cleanly */
-    header[data-testid="stHeader"] {
-        background-color: transparent !important;
-    }
-    
-    /* Clean Custom Nav */
+    header[data-testid="stHeader"] { background-color: transparent !important; }
     .custom-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; background: rgba(31, 41, 55, 0.4); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 2rem;}
-    
     .block-card { background: #111827; border: 1px solid #1F2937; border-radius: 24px; padding: 2.5rem; margin-top: 15px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
     .kpi-container { background: rgba(31, 41, 55, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 1.5rem; text-align: center; }
     .kpi-label { color: #9CA3AF; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
     .kpi-value { font-size: 1.6rem; font-weight: 800; margin-top: 8px; background: linear-gradient(90deg, #A5B4FC, #E879F9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2;}
-    
     .stTabs [data-baseweb="tab-list"] { background-color: transparent; gap: 24px; }
     .stTabs [data-baseweb="tab"] { background-color: #1F2937; border-radius: 14px; color: #9CA3AF; padding: 12px 32px; font-weight: 600; border: 1px solid transparent; transition: all 0.3s ease; }
     .stTabs [aria-selected="true"] { background: #374151 !important; border: 1px solid #6366F1 !important; color: white !important; }
-    
-    /* Target ONLY primary action buttons to avoid breaking the file uploader button */
     div[data-testid="stButton"] > button[kind="primary"] { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; font-weight: 700 !important; transition: transform 0.2s, box-shadow 0.2s !important; }
     div[data-testid="stButton"] > button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
-    
-    /* ABSA Mini Cards */
     .absa-card { background: rgba(255,255,255,0.02); border-left: 3px solid #6366F1; padding: 15px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem;}
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# SIDEBAR & HEADER
-# ==========================================
 with st.sidebar:
     st.markdown("### 💠 Enterprise Edition")
     st.caption("Behavioral AI & Tone Analysis")
@@ -92,9 +73,6 @@ def bool_badge(val, alert_red=False):
         return f'<span style="background: {bg}; color: {color}; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight:bold;">Yes</span>'
     return '<span style="background: rgba(107, 114, 128, 0.2); color: #9CA3AF; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">No</span>'
 
-# ==========================================
-# MAIN TABS
-# ==========================================
 tab1, tab2, tab3 = st.tabs(["⚡ REAL-TIME AUDIT", "📦 BATCH WORKSPACE", "📊 STRATEGIC INSIGHTS"])
 
 with tab1:
