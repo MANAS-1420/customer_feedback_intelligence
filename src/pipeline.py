@@ -5,7 +5,7 @@ import pandas as pd
 from src.config import EMOTION_LABELS, CUSTOMER_INTENT_LABELS, PRIORITY_LABELS, CATEGORY_SUBCATEGORY_MAP
 from src.rule_engine import (
     TAXONOMY_KEYWORDS, EMOTION_KEYWORDS, CUSTOMER_INTENT_KEYWORDS,
-    ASPECT_SENT_NEG_KW, ASPECT_SENT_POS_KW, MIXED_FEEDBACK_KW, URGENT_KW, STRONG_NEG_PHRASES
+    ASPECT_SENT_NEG_KW, ASPECT_SENT_POS_KW, MIXED_FEEDBACK_KW, URGENT_KW, STRONG_NEG_PHRASES, NEGATED_NEGATIVE_PHRASES
 )
 from src.utils import normalize, any_hit, matched_keywords, split_into_clauses
 from src.bert_model import get_bert_sentiment
@@ -17,13 +17,15 @@ HINGLISH_CUES = ["hai", "nahi", "kya", "kar", "mein", "pe", "se", "ko", "bhi", "
 def get_best_hierarchy_match(text: str) -> tuple:
     max_hits = 0
     best_match = ("neutral_informational", "no_clear_sentiment")
+    text_padded = f" {text.lower()} "
     for (cat, subcat), keywords in TAXONOMY_KEYWORDS.items():
         hits = 0
         for kw in keywords:
-            # Forgiving substring match for Hinglish variations
-            if kw.lower() in text.lower():
-                word_count = len(kw.split())
-                hits += (word_count ** 2) * 10
+            kw_lower = kw.lower()
+            if len(kw_lower.split()) > 1:
+                if kw_lower in text.lower(): hits += (len(kw_lower.split()) ** 2) * 10
+            else:
+                if f" {kw_lower} " in text_padded: hits += 10
         if hits > max_hits:
             max_hits = hits
             best_match = (cat, subcat)
@@ -32,11 +34,15 @@ def get_best_hierarchy_match(text: str) -> tuple:
 def get_best_match(text: str, keyword_dict: dict, fallback: str) -> str:
     max_hits = 0
     best_label = fallback
+    text_padded = f" {text.lower()} "
     for label, keywords in keyword_dict.items():
         hits = 0
         for kw in keywords:
-            if kw.lower() in text.lower():
-                hits += (len(kw.split()) ** 2) * 10
+            kw_lower = kw.lower()
+            if len(kw_lower.split()) > 1:
+                if kw_lower in text.lower(): hits += (len(kw_lower.split()) ** 2) * 10
+            else:
+                if f" {kw_lower} " in text_padded: hits += 10
         if hits > max_hits:
             max_hits = hits
             best_label = label
@@ -46,7 +52,6 @@ def compute_priority_score(text: str, sentiment: str, cat: str, subcat: str, is_
     score = 0
     if any_hit(text, EMOTION_KEYWORDS["Very Angry"]): score += 50
     if cat in ["payment_billing", "fraud_security"]: score += 40
-    # Severe Indian specific issues
     if subcat in ["double_charge", "payment_deducted_not_processed", "fake_delivery_update", "recovery_agent_issue", "legal_threat", "social_media_threat"]: score += 40
     if subcat in ["product_quality_poor", "delivery_agent_behavior_rude"]: score += 30
     
@@ -63,36 +68,40 @@ def analyze_clause(clause_text: str, full_review_mixed: bool, full_urgent: bool,
     emotion = get_best_match(norm_text, EMOTION_KEYWORDS, "Calm")
     intent = get_best_match(norm_text, CUSTOMER_INTENT_KEYWORDS, "Neutral Tone")
     
-    # 1. Detect Rule-Based Sentiment
+    is_negated_negative = any_hit(norm_text, NEGATED_NEGATIVE_PHRASES)
+
     rule_sentiment = "neutral"
-    if any_hit(norm_text, ASPECT_SENT_NEG_KW) or emotion in ["Very Angry", "Angry", "Frustrated"] or intent in ["Complaint", "Negative Tone"]:
+    if is_negated_negative:
+        rule_sentiment = "positive"
+        if emotion in ["Very Angry", "Angry", "Frustrated"]: emotion = "Satisfied"
+        if intent in ["Complaint", "Negative Tone"]: intent = "Praise"
+        if category == "negative_intent": category, subcategory = "positive_feedback", "great_experience"
+    elif any_hit(norm_text, ASPECT_SENT_NEG_KW) or emotion in ["Very Angry", "Angry", "Frustrated"] or intent in ["Complaint", "Negative Tone"]:
         rule_sentiment = "negative"
     elif any_hit(norm_text, ASPECT_SENT_POS_KW) or emotion in ["Happy", "Satisfied"] or intent in ["Praise", "Positive Tone"]:
         rule_sentiment = "positive"
         
-    # 2. Get BERT Sentiment
     bert_sent, bert_conf = get_bert_sentiment(clause_text)
     
-    # 3. OVERRIDE: Rule Engine > BERT (Fixes "ghatiya" & Hinglish slang issues)
     if rule_sentiment != "neutral":
         final_sentiment = rule_sentiment
     else:
         final_sentiment = bert_sent if bert_conf >= 0.50 else "neutral"
         
-    # 4. CATEGORY-DRIVEN FORCING: Force negative states for specific pain points
     severe_issues = ["double_charge", "payment_failed", "payment_deducted_not_processed", "product_defect", "product_quality_poor", "missing_items", "delayed_delivery", "fake_delivery_update", "recovery_agent_issue"]
-    if subcategory in severe_issues or category in ["negative_intent", "fraud_security"]:
-        final_sentiment = "negative"
-        if intent in ["Neutral Tone", "Positive Tone", "Enquiry"]: intent = "Complaint"
-        if emotion in ["Calm", "Happy"]: emotion = "Frustrated"
+    if not is_negated_negative:
+        if subcategory in severe_issues or category in ["negative_intent", "fraud_security"]:
+            final_sentiment = "negative"
+            if intent in ["Neutral Tone", "Positive Tone", "Enquiry"]: intent = "Complaint"
+            if emotion in ["Calm", "Happy", "Satisfied"]: emotion = "Frustrated"
             
-    # 5. Corrections for Positive False Alarms
-    if final_sentiment == "positive" and subcategory not in severe_issues and category != "negative_intent":
+    if final_sentiment == "positive" and not is_negated_negative and subcategory not in severe_issues and category != "negative_intent":
         if category in ["neutral_informational"]: category, subcategory = "positive_feedback", "great_experience"
         if intent in ["Negative Tone", "Complaint"]: intent = "Praise"
         if emotion in ["Calm", "Frustrated", "Angry", "Very Angry"]: emotion = "Satisfied"
         
     priority_score = compute_priority_score(norm_text, final_sentiment, category, subcategory, full_urgent, full_strong_neg)
+    if is_negated_negative: priority_score = min(priority_score, 10)
     
     return {
         "clause_text": clause_text,
@@ -117,7 +126,6 @@ def analyze_single(review_text: str) -> dict:
         strong_negative = any_hit(norm_text, STRONG_NEG_PHRASES)
         mixed_feedback = any_hit(norm_text, MIXED_FEEDBACK_KW)
         
-        # Language detection (Hinglish focus)
         if re.search(r'[\u0900-\u097F]', raw_text): language = "Hindi"
         elif any_hit(norm_text, HINGLISH_CUES): language = "Hinglish"
         else: language = "English"
@@ -137,7 +145,6 @@ def analyze_single(review_text: str) -> dict:
         nps_type = "Promoter" if final_sentiment == "positive" else ("Detractor" if final_sentiment == "negative" else "Passive")
         nps_score = 100 if nps_type == "Promoter" else (-100 if nps_type == "Detractor" else 0)
         
-        # Indian E-commerce Churn Flags
         churn_risk = (primary['category'] == "negative_intent") or (priority_score >= 60 and final_sentiment == "negative")
         
         caps_ratio = sum(1 for c in raw_text if c.isupper()) / (len(raw_text) + 1)
