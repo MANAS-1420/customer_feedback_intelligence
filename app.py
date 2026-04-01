@@ -25,7 +25,10 @@ st.markdown("""
     html, body, [class*="st-"] { font-family: 'Plus Jakarta Sans', sans-serif; color: #F3F4F6; }
     
     .stApp { background-color: #030712; background-image: radial-gradient(circle at 2px 2px, rgba(99, 102, 241, 0.05) 1px, transparent 0); background-size: 40px 40px; }
-    .custom-nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 4rem; background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+    
+    /* Clean Custom Nav */
+    .custom-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; background: rgba(31, 41, 55, 0.4); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 2rem;}
+    
     .block-card { background: #111827; border: 1px solid #1F2937; border-radius: 24px; padding: 2.5rem; margin-top: 15px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
     .kpi-container { background: rgba(31, 41, 55, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 1.5rem; text-align: center; }
     .kpi-label { color: #9CA3AF; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
@@ -35,9 +38,12 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { background-color: #1F2937; border-radius: 14px; color: #9CA3AF; padding: 12px 32px; font-weight: 600; border: 1px solid transparent; transition: all 0.3s ease; }
     .stTabs [aria-selected="true"] { background: #374151 !important; border: 1px solid #6366F1 !important; color: white !important; }
     
-    div.stButton > button { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; padding: 14px 24px !important; border-radius: 16px !important; font-weight: 700 !important; width: 100%; transition: transform 0.2s, box-shadow 0.2s !important; }
-    div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
-    [data-testid="stFileUploadDropzone"] { background-color: rgba(31, 41, 55, 0.5) !important; border: 2px dashed #374151 !important; border-radius: 16px !important; }
+    /* Safely target ONLY primary action buttons, leaving uploader alone */
+    div[data-testid="stButton"] > button[kind="primary"] { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important; color: white !important; border: none !important; border-radius: 12px !important; font-weight: 700 !important; transition: transform 0.2s, box-shadow 0.2s !important; }
+    div[data-testid="stButton"] > button[kind="primary"]:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(99, 102, 241, 0.5); }
+    
+    /* ABSA Mini Cards */
+    .absa-card { background: rgba(255,255,255,0.02); border-left: 3px solid #6366F1; padding: 15px; border-radius: 8px; margin-bottom: 10px; font-size: 0.9rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,14 +55,13 @@ with st.sidebar:
     st.caption("Behavioral AI & Tone Analysis")
     st.divider()
     st.markdown("**Intelligence Layer:**")
-    st.markdown("- Psychological Churn Risk\n- Language Auto-Detect\n- Sarcasm Flagging\n- Tone Intensity Scoring")
+    st.markdown("- Aspect-Based Splitting\n- Psychological Churn Risk\n- Language Auto-Detect\n- Sarcasm Flagging")
 
 st.markdown("""
 <div class="custom-nav">
     <div style="font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px;"><span style="color: #6366F1;">CUSTOMER</span> FEEDBACK <span style="color: #6366F1;">INTELLIGENCE</span></div>
     <div style="display: flex; gap: 20px; align-items: center;"><span style="color: #10B981; font-weight: 700; font-size: 0.85rem;">● SYSTEM OPERATIONAL</span><div style="width: 38px; height: 38px; background: #6366F1; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white;">M</div></div>
 </div>
-<div style="margin-top: 100px;"></div>
 """, unsafe_allow_html=True)
 
 if not PIPELINE_CONNECTED: st.error("⚠️ `src.pipeline` not found.")
@@ -87,13 +92,13 @@ with tab1:
     with col_l:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
-        raw_text = st.text_area("Review Input", height=240, placeholder="Example: WHAT THE HELL!! Great product but your app is totally useless. Uninstalling right now.", label_visibility="collapsed")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Delivery was fast, but the product is completely broken.", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
-        if c1.button("EXECUTE ANALYSIS"):
+        if c1.button("EXECUTE ANALYSIS", type="primary", use_container_width=True):
             if raw_text.strip():
                 with st.spinner("Analyzing psychological markers..."): st.session_state.single_res = analyze_single(raw_text)
-        if c2.button("CLEAR"):
+        if c2.button("CLEAR", use_container_width=True):
             st.session_state.single_res = None
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -102,7 +107,7 @@ with tab1:
         if "single_res" in st.session_state and st.session_state.single_res:
             res = st.session_state.single_res
             st.markdown('<div class="block-card">', unsafe_allow_html=True)
-            st.markdown("### 🛡️ Intelligence Output")
+            st.markdown("### 🛡️ Dominant Intelligence Output")
             
             k1, k2, k3 = st.columns(3)
             with k1: render_kpi("Priority", str(res.get('priority_label', 'N/A')).upper())
@@ -111,7 +116,6 @@ with tab1:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # --- NEW: PSYCHOLOGICAL PROFILE ROW ---
             st.markdown("#### 🧠 Psychological & Behavioral Profile")
             m1, m2, m3, m4 = st.columns(4)
             m1.write(f"**Emotion:** `{str(res.get('emotion_label', 'N/A'))}`")
@@ -121,8 +125,7 @@ with tab1:
             
             st.divider()
             
-            # --- TAXONOMY & FLAGS ---
-            st.write(f"**Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`  |  **Subcategory:** `{str(res.get('subcategory_label', 'N/A'))}`")
+            st.write(f"**Primary Category:** `{str(res.get('primary_aspect_label', 'N/A'))}`  |  **Subcategory Threat:** `{str(res.get('subcategory_label', 'N/A'))}`")
             
             d1, d2 = st.columns(2)
             with d1:
@@ -138,7 +141,23 @@ with tab1:
                 kw = res.get('matched_keywords', "")
                 if kw and kw != "None":
                     st.markdown(" ".join([f'<span style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; margin: 2px; display: inline-block; color: #A5B4FC;">{k}</span>' for k in kw.split(", ")]), unsafe_allow_html=True)
-                
+            
+            if 'absa_breakdown' in res and res['absa_breakdown'] and len(res['absa_breakdown']) > 1:
+                st.divider()
+                st.markdown("#### 🔍 Aspect-Based Breakdown (Clauses)")
+                for i, clause in enumerate(res['absa_breakdown']):
+                    c_sent = clause['sentiment'].upper()
+                    color = "#10B981" if c_sent == "POSITIVE" else "#EF4444" if c_sent == "NEGATIVE" else "#6B7280"
+                    st.markdown(f"""
+                    <div class="absa-card">
+                        <div style="color: #9CA3AF; font-size: 0.8rem; margin-bottom: 5px;">Clause {i+1}</div>
+                        <div style="font-weight: 600; margin-bottom: 8px;">"{clause['clause_text']}"</div>
+                        <span style="color: {color}; font-weight: 700; font-size: 0.8rem;">{c_sent}</span> 
+                        <span style="color: #6B7280;">•</span> 
+                        <span style="font-size: 0.8rem; color: #A5B4FC;">{clause['subcategory'].replace('_', ' ').title()}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
             st.info(f"**Automated Action:** {res.get('action_recommendation', 'Log for standard reporting.')}")
             st.markdown('</div>', unsafe_allow_html=True)
         else:
@@ -154,7 +173,7 @@ with tab2:
         detected_col = get_review_col(df_input)
         if detected_col:
             target_col = st.selectbox("Confirm Target Review Column", df_input.columns, index=list(df_input.columns).index(detected_col))
-            if st.button("PROCESS DATASET"):
+            if st.button("PROCESS DATASET", type="primary"):
                 start = time.time()
                 with st.spinner("Executing Batch Intelligence..."):
                     processed_res = analyze_dataframe(df_input, target_col)
