@@ -1,9 +1,9 @@
 # src/rule_engine.py
 TAXONOMY_KEYWORDS = {
-    ("product_service_quality", "product_defect"): ["defect", "broken", "not working", "faulty", "kharab", "toota", "damage", "kaam nahi kar", "chalta nahi", "fata hua", "defective"],
+    ("product_service_quality", "product_defect"): ["defect", "broken", "not working", "faulty", "kharab", "toota", "damage", "kaam nahi kar", "chalta nahi", "fata hua", "defective", "nikla"],
     ("product_service_quality", "product_quality_poor"): ["poor quality", "bad quality", "cheap", "bekar", "bekaar", "ghatiya", "gatiya", "bakwas", "kachra", "raddi", "third class", "waste", "sasta material", "fake product", "duplicate"],
     ("product_service_quality", "product_quality_good"): ["good quality", "nice", "awesome", "acha", "mast", "superb", "ek number", "badiya", "original product", "genuine"],
-    ("product_service_quality", "missing_items"): ["missing", "not inside", "empty box", "gayab", "kuch nahi mila", "khali dabba", "aaha saman", "item missing"],
+    ("product_service_quality", "missing_items"): ["missing", "not inside", "empty box", "gayab", "kuch nahi mila", "khali dabba", "aadha saman", "item missing"],
     ("product_service_quality", "wrong_item_delivered"): ["wrong item", "different", "galat item", "kuch aur bhej diya", "wrong product", "galat color", "wrong size", "dusra de diya"],
     ("product_service_quality", "packaging_issue"): ["torn package", "open box", "bad packaging", "fata hua", "khula box", "packing kharab", "seal tooti", "crushed", "leak ho raha"],
     ("product_service_quality", "service_quality_poor"): ["bad service", "poor service", "bekar service", "ghatiya service", "kharab service", "wahiyaat service", "third class service"],
@@ -12,8 +12,8 @@ TAXONOMY_KEYWORDS = {
     ("delivery_logistics", "early_delivery"): ["early", "fast delivery", "jaldi", "time se pehle", "fatafat"],
     ("delivery_logistics", "no_delivery"): ["not delivered", "never arrived", "delivery nahi hui", "parcel nahi mila", "nahi aaya"],
     ("delivery_logistics", "fake_delivery_update"): ["fake update", "fake delivery", "jhutha status", "bina call kiye cancel", "delivered dikha raha par mila nahi", "jhooth bol raha"],
-    ("delivery_logistics", "delivery_agent_behavior_rude"): ["rude delivery boy", "arrogant rider", "badtameez", "gali diya", "rider rude", "delivery wala bekar", "attitude dikha raha", "upar aane se mana"],
-    ("delivery_logistics", "delivery_agent_behavior_good"): ["polite", "good delivery guy", "acha ladka", "behavior good", "cooperative rider"],
+    ("delivery_logistics", "delivery_agent_behavior_rude"): ["rude delivery boy", "arrogant rider", "badtameez", "gali diya", "rider rude", "delivery wala bekar", "attitude dikha raha", "behavior kharab", "behaviour bekar"],
+    ("delivery_logistics", "delivery_agent_behavior_good"): ["polite", "good delivery guy", "acha ladka", "behavior good", "cooperative rider", "behavior acha", "behaviour acha", "acha tha"],
     ("delivery_logistics", "tracking_issue"): ["track", "location", "where is my order", "kaha hai order", "status update nahi", "stuck at hub"],
     ("delivery_logistics", "wrong_address_delivery"): ["wrong address", "somewhere else", "kisi aur ko", "galat address", "padosi ko de diya", "security guard ko de diya"],
 
@@ -21,7 +21,7 @@ TAXONOMY_KEYWORDS = {
     ("payment_billing", "double_charge"): ["double charge", "do baar", "twice", "double deduct", "double payment", "do bar kat gaye", "2 times"],
     ("payment_billing", "payment_deducted_not_processed"): ["deduct", "kat gaye", "debited", "cut", "account se kat", "paise cut gaye par order nahi", "bank se cut gaya"],
     ("payment_billing", "hidden_charges"): ["hidden", "extra tax", "loot", "faltu charge", "convenience fee", "zyada paise liye"],
-    ("payment_billing", "refund_not_received"): ["refund nahi aaya", "wapas nahi aaye", "refund pending", "paise wapas", "refund delay", "kab aayega refund"],
+    ("payment_billing", "refund_not_received"): ["refund nahi aaya", "wapas nahi aaye", "refund pending", "paise wapas", "refund delay", "kab aayega refund", "refund"],
     ("payment_billing", "fraud_suspicion"): ["fraud", "scam", "chori", "dhokha", "bina otp", "hacked", "mere account se paise nikal", "dhokhebaaz"],
 
     ("loan_finance", "loan_approval_delay"): ["loan approval", "loan pending", "approval delay", "approve nahi hua", "loan pass", "file atki", "process slow"],
@@ -47,7 +47,7 @@ TAXONOMY_KEYWORDS = {
     ("technical_app_website", "website_down"): ["website down", "site down", "server error", "404", "chal nahi rahi"],
 
     ("returns_refund_cancellation", "return_rejected"): ["return denied", "wapas nahi le rahe", "return reject", "policy ka bahana"],
-    ("returns_refund_cancellation", "return_pickup_delay"): ["pickup delay", "koi lene nahi aaya", "pickup boy call nahi kiya", "pickup pending"],
+    ("returns_refund_cancellation", "return_pickup_delay"): ["pickup delay", "koi lene nahi aaya", "pickup boy call nahi kiya", "pickup pending", "pickup"],
     ("returns_refund_cancellation", "cancellation_issue"): ["cannot cancel", "cancel nahi ho raha", "cancel option gayab", "order cancel karna hai"],
 
     ("negative_intent", "angry_customer"): ["angry", "terrible", "worst", "hate", "gussa", "bekar", "ghatiya", "dimag kharab"],
@@ -70,19 +70,19 @@ EMOTION_KEYWORDS = {
 }
 
 CUSTOMER_INTENT_KEYWORDS = {
-    "Complaint": ["issue", "problem", "not working", "dikkat", "shikayat", "kharab", "fail", "complaint", "fix", "ghatiya", "bekar", "deduct", "charge", "toota"],
+    "Complaint": ["issue", "problem", "not working", "dikkat", "shikayat", "kharab", "fail", "complaint", "fix", "ghatiya", "bekar", "deduct", "charge", "toota", "damage"],
     "Delay": ["late", "delay", "waiting", "deri", "pending", "abhi tak", "time lag raha"],
     "Praise": ["great", "best", "superb", "thank you", "shukriya", "praise", "kudos", "dhanyawad", "awesome"],
     "Enquiry": ["how", "status", "kab", "kaha", "guide", "query", "help", "kaise", "batao", "update"],
     "Negative Tone": ["bad", "poor", "sad", "disappointed", "nirash"],
-    "Positive Tone": ["love", "mast", "perfect", "pyara", "zabardast"],
+    "Positive Tone": ["love", "mast", "perfect", "pyara", "zabardast", "acha"],
     "Neutral Tone": []
 }
 
 ASPECT_SENT_NEG_KW = [
     "not", "bad", "fail", "worst", "kharab", "bekar", "bekaar", "nahi", "nhi", "mat", "poor", "hate", "terrible", "issue", "problem", "dont", "cant",
     "ghatiya", "gatiya", "kachra", "bakwas", "pathetic", "fraud", "scam", "useless", "garbage", "rubbish", "slow", "late", "delay", "rude",
-    "deduct", "charge", "kat", "chutiya", "chor", "lutera", "fake", "jhutha"
+    "deduct", "charge", "kat", "chutiya", "chor", "lutera", "fake", "jhutha", "damage"
 ]
 ASPECT_SENT_POS_KW = [
     "good", "great", "excellent", "fast", "best", "mast", "acha", "smooth", "awesome", "perfect", "love", "badiya", "zabardast",
