@@ -84,7 +84,7 @@ with tab1:
     with col_l:
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
         st.markdown("### 📝 Input Terminal")
-        raw_text = st.text_area("Review Input", height=240, placeholder="Example: Payment failed twice and customer support was extremely rude.", label_visibility="collapsed")
+        raw_text = st.text_area("Review Input", height=240, placeholder="Example: ek dum ghatiya product...", label_visibility="collapsed")
         
         c1, c2 = st.columns(2)
         if c1.button("EXECUTE ANALYSIS"):
@@ -147,8 +147,14 @@ with tab2:
             if st.button("PROCESS DATASET"):
                 start = time.time()
                 with st.spinner("Executing Batch Intelligence..."):
+                    # CRASH-PROOF TUPLE UNPACKING
                     processed_res = analyze_dataframe(df_input, target_col)
-                    st.session_state.batch_data = processed_res[0] if isinstance(processed_res, tuple) else processed_res
+                    if isinstance(processed_res, tuple) and len(processed_res) == 2:
+                        st.session_state.batch_data = processed_res[0]
+                        st.session_state.meta = processed_res[1]
+                    else:
+                        st.session_state.batch_data = processed_res
+                        st.session_state.meta = {}
                 st.session_state.proc_time = time.time() - start
         else:
             st.error("No valid columns found in the uploaded file.")
