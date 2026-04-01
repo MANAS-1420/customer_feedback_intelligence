@@ -4,7 +4,7 @@
 def generate_ai_summary(df_subset):
     try:
         # 🔒 SECURE WAY: Pulls the key from Streamlit Secrets, NOT from the code
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets["AIzaSyBz6_6-r-aFQGKzmCXw_spwexoQFMmk3jM"]
         genai.configure(api_key=api_key)
         
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
