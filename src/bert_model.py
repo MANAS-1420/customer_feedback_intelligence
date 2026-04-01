@@ -30,15 +30,16 @@ def generate_ai_summary(df_subset):
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
         prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
         
-        # SMART FALLBACK: Tries latest flash, then falls back to stable pro
+        # Primary Attempt: The standard 1.5 Flash model
         try:
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
+            model = genai.GenerativeModel('gemini-1.5-flash')
             response = model.generate_content(prompt)
             return response.text
-        except Exception:
-            model = genai.GenerativeModel('gemini-pro')
-            response = model.generate_content(prompt)
+        except Exception as e:
+            # Fallback Attempt: The 1.5 Pro model
+            model_pro = genai.GenerativeModel('gemini-1.5-pro')
+            response = model_pro.generate_content(prompt)
             return response.text
             
-    except Exception as e:
-        return f"AI Summary unavailable: {str(e)}"
+    except Exception as fatal_error:
+        return f"AI Summary unavailable. Google API Error: {str(fatal_error)}"
