@@ -25,18 +25,22 @@ def get_bert_sentiment(text: str):
 @st.cache_data(ttl=3600)
 def generate_ai_summary(df_subset):
     try:
-        api_key = st.secrets["AIzaSyBz6_6-r-aFQGKzmCXw_spwexoQFMmk3jM"]
+        # 1. Ask Streamlit for the secret vault key named "GEMINI_API_KEY"
+        api_key = st.secrets["GEMINI_API_KEY"]
+        
+        # 2. Configure Google AI with that key
         genai.configure(api_key=api_key)
         
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
         prompt = f"Analyze these classified customer reviews. Provide a 3-bullet executive summary. Focus on the main problem category, the general sentiment, and one actionable recommendation for the business: \n\n{context}"
         
+        # DYNAMIC MODEL FINDER
         available_models = []
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 available_models.append(m.name)
                 
-        if not available_models: return "AI Summary unavailable."
+        if not available_models: return "AI Summary unavailable: No generative models found."
             
         target_model = available_models[0]
         for m_name in available_models:
