@@ -1,122 +1,113 @@
-Skip to content
-MANAS-1420
-customer_feedback_intelligence
-Repository navigation
-Code
-Issues
-Pull requests
-Actions
-Projects
-Wiki
-Security and quality
-1
- (1)
-Insights
-Settings
-Files
-Go to file
-t
-src
-__init__.py
-bert_model.py
-config.py
-pipeline.py
-rule_engine.py
-utils.py
-.gitignore
-README.md
-app.py
-requirements.txt
-customer_feedback_intelligence/src
-/
-rule_engine.py
-in
-main
-
-Edit
-
-Preview
-Indent mode
-
-Spaces
-Indent size
-
-4
-Line wrap mode
-
-No wrap
-Editing rule_engine.py file contents
-1
-2
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
 # src/rule_engine.py
 
 # ==========================================
-# A. MASTER TAXONOMY KEYWORDS
+# A. MASTER TAXONOMY KEYWORDS (Indian / Hinglish Optimized)
 # ==========================================
 TAXONOMY_KEYWORDS = {
     # PRODUCT SERVICE QUALITY
-    ("product_service_quality", "product_defect"): ["product defect", "item broken", "not working", "faulty", "kharab product", "toota hua", "खराब सामान", "kaam nahi kar raha"],
-    ("product_service_quality", "product_quality_poor"): ["poor quality", "bad quality", "cheap material", "bekar quality", "ghatiya product", "घटिया", "bakwas quality"],
-    ("product_service_quality", "product_quality_good"): ["good quality", "nice product", "awesome material", "acha product", "mast quality", "अच्छा", "बढ़िया"],
-    ("product_service_quality", "missing_items"): ["missing item", "not inside box", "empty box", "gayab", "kuch nahi mila", "गायब", "खाली डिब्बा"],
-    ("product_service_quality", "wrong_item_delivered"): ["wrong item", "different product", "galat item", "kuch aur bhej diya", "wrong product", "गलत सामान"],
-    ("product_service_quality", "packaging_issue"): ["torn package", "open box", "bad packaging", "fata hua", "khula box", "packing kharab", "पैकिंग खराब"],
-    ("product_service_quality", "service_quality_poor"): ["bad service", "poor service", "bekar service", "ghatiya service", "kharab service", "खराब सर्विस"],
-    ("product_service_quality", "service_quality_good"): ["good service", "best service", "great service", "acha service", "mast service", "अच्छी सर्विस"],
+    ("product_service_quality", "product_defect"): ["defect", "broken", "not working", "faulty", "kharab", "toota", "damage", "kaam nahi kar", "chalta nahi", "fata hua", "defective"],
+    ("product_service_quality", "product_quality_poor"): ["poor quality", "bad quality", "cheap", "bekar", "bekaar", "ghatiya", "gatiya", "bakwas", "kachra", "raddi", "third class", "waste", "sasta material", "fake product", "duplicate"],
+    ("product_service_quality", "product_quality_good"): ["good quality", "nice", "awesome", "acha", "mast", "superb", "ek number", "badiya", "original product", "genuine"],
+    ("product_service_quality", "missing_items"): ["missing", "not inside", "empty box", "gayab", "kuch nahi mila", "khali dabba", "aaha saman", "item missing"],
+    ("product_service_quality", "wrong_item_delivered"): ["wrong item", "different", "galat item", "kuch aur bhej diya", "wrong product", "galat color", "wrong size", "dusra de diya"],
+    ("product_service_quality", "packaging_issue"): ["torn package", "open box", "bad packaging", "fata hua", "khula box", "packing kharab", "seal tooti", "crushed", "leak ho raha"],
+    ("product_service_quality", "service_quality_poor"): ["bad service", "poor service", "bekar service", "ghatiya service", "kharab service", "wahiyaat service", "third class service"],
 
-    # DELIVERY LOGISTICS (Anchored Logistics)
-    ("delivery_logistics", "delayed_delivery"): ["delivery delay", "order late", "shipping delay", "late delivery", "not delivered yet", "delivery me deri", "late order", "देर से डिलीवरी"],
-    ("delivery_logistics", "early_delivery"): ["early delivery", "fast delivery", "jaldi aa gaya", "time se pehle delivery", "जल्दी डिलीवरी"],
-    ("delivery_logistics", "no_delivery"): ["not delivered", "never arrived", "delivery nahi hui", "parcel nahi mila", "पार्सल नहीं मिला"],
-    ("delivery_logistics", "delivery_agent_behavior_rude"): ["rude delivery boy", "arrogant rider", "badtameez delivery", "gali diya delivery", "बदतमीज़ डिलीवरी बॉय"],
-    ("delivery_logistics", "delivery_agent_behavior_good"): ["polite boy", "good delivery guy", "acha ladka tha", "polite behavior", "विनम्र डिलीवरी"],
-    ("delivery_logistics", "tracking_issue"): ["track order", "order location", "where is my order", "track nahi ho raha", "ऑर्डर ट्रैक"],
-    ("delivery_logistics", "wrong_address_delivery"): ["wrong address", "delivered somewhere else", "kisi aur ko de diya", "galat address", "गलत पते पर"],
-    ("delivery_logistics", "logistics_damage"): ["damaged in transit", "crushed box", "courier damage", "raste me toot gaya", "पार्सल टूट गया"],
+    # DELIVERY LOGISTICS (Indian Context)
+    ("delivery_logistics", "delayed_delivery"): ["delay", "late", "not delivered", "deri", "abhi tak nahi aaya", "late delivery", "bahut time lagaya", "kab aayega", "still waiting"],
+    ("delivery_logistics", "early_delivery"): ["early", "fast delivery", "jaldi", "time se pehle", "fatafat"],
+    ("delivery_logistics", "no_delivery"): ["not delivered", "never arrived", "delivery nahi hui", "parcel nahi mila", "nahi aaya"],
+    ("delivery_logistics", "fake_delivery_update"): ["fake update", "fake delivery", "jhutha status", "bina call kiye cancel", "delivered dikha raha par mila nahi", "jhooth bol raha"],
+    ("delivery_logistics", "delivery_agent_behavior_rude"): ["rude delivery boy", "arrogant rider", "badtameez", "gali diya", "rider rude", "delivery wala bekar", "attitude dikha raha", "upar aane se mana"],
+    ("delivery_logistics", "delivery_agent_behavior_good"): ["polite", "good delivery guy", "acha ladka", "behavior good", "cooperative rider"],
+    ("delivery_logistics", "tracking_issue"): ["track", "location", "where is my order", "kaha hai order", "status update nahi", "stuck at hub"],
+    ("delivery_logistics", "wrong_address_delivery"): ["wrong address", "somewhere else", "kisi aur ko", "galat address", "padosi ko de diya", "security guard ko de diya"],
 
-    # PAYMENT BILLING (Anchored Payment)
-    ("payment_billing", "payment_failed"): ["payment fail", "transaction failed", "payment error", "payment nahi ho raha", "पेमेंट फेल", "भुगतान विफल"],
-    ("payment_billing", "payment_deducted_not_processed"): ["money deducted", "paise kat gaye", "account debited", "payment cut but no order", "पैसे कट गए"],
-    ("payment_billing", "double_charge"): ["charged twice", "double payment", "do bar paise kate", "double charge lag gaya", "दो बार चार्ज"],
-    ("payment_billing", "hidden_charges"): ["hidden charge", "extra tax", "loot liya", "faltu charge", "अतिरिक्त चार्ज"],
-    ("payment_billing", "refund_not_received"): ["refund not received", "refund pending", "refund nahi mila", "paise wapas nahi aaye", "रिफंड नहीं मिला"],
-    ("payment_billing", "billing_error"): ["wrong bill", "invoice error", "galat bill", "zyada bill", "गलत बिल"],
-    ("payment_billing", "fraud_suspicion"): ["fraud transaction", "scam payment", "paise chori", "dhokha fraud", "धोखाधड़ी"],
+    # PAYMENT BILLING (UPI & Indian Banking)
+    ("payment_billing", "payment_failed"): ["fail", "error", "payment nahi ho raha", "transaction failed", "upi fail", "server down payment", "stuck", "atak gaya"],
+    ("payment_billing", "double_charge"): ["double charge", "do baar", "twice", "double deduct", "double payment", "do bar kat gaye", "2 times"],
+    ("payment_billing", "payment_deducted_not_processed"): ["deduct", "kat gaye", "debited", "cut", "account se kat", "paise cut gaye par order nahi", "bank se cut gaya"],
+    ("payment_billing", "hidden_charges"): ["hidden", "extra tax", "loot", "faltu charge", "convenience fee", "zyada paise liye"],
+    ("payment_billing", "refund_not_received"): ["refund nahi aaya", "wapas nahi aaye", "refund pending", "paise wapas", "refund delay", "kab aayega refund"],
+    ("payment_billing", "fraud_suspicion"): ["fraud", "scam", "chori", "dhokha", "bina otp", "hacked", "mere account se paise nikal", "dhokhebaaz"],
 
-    # LOAN FINANCE (Anchored Finance)
-Use Control + Shift + m to toggle the tab key moving focus. Alternatively, use esc then tab to move to the next interactive element on the page.
- 
+    # LOAN FINANCE
+    ("loan_finance", "loan_approval_delay"): ["loan approval", "loan pending", "approval delay", "approve nahi hua", "loan pass", "file atki", "process slow"],
+    ("loan_finance", "loan_rejected"): ["rejected", "declined", "cancel", "mana kar diya", "cibil issue", "reject kar diya"],
+    ("loan_finance", "interest_rate_issue"): ["interest", "roi", "byaj", "rate zyada", "high interest"],
+    ("loan_finance", "loan_disbursal_delay"): ["disbursal", "disbursement", "credited", "loan ka paisa nahi aaya", "account me nahi aaya"],
+    ("loan_finance", "emi_calculation_issue"): ["emi", "installment", "kist", "bounce charge", "emi zyada", "wrong emi"],
+    ("loan_finance", "recovery_agent_issue"): ["recovery agent", "pareshan kar rahe", "harassment", "gali galoch", "dhamki de rahe", "call karke pareshan"],
+    ("loan_finance", "kyc_issue"): ["kyc", "video kyc", "pan card", "aadhaar", "document reject", "kyc pending"],
+
+    # CUSTOMER SERVICE
+    ("customer_service", "support_unresponsive"): ["no response", "not answering", "koi jawab nahi", "phone nahi uthate", "ignoring", "reply nahi karte", "hold pe rakha"],
+    ("customer_service", "slow_response"): ["slow reply", "late response", "time lagate", "bahut wait karaya"],
+    ("customer_service", "helpful_support"): ["helpful", "good support", "solved", "madad ki", "problem solve"],
+    ("customer_service", "rude_behavior"): ["rude staff", "abusive", "badtameezi", "customer care rude", "tameez nahi"],
+    ("customer_service", "issue_not_resolved"): ["unresolved", "not helping", "problem still", "kuch solve nahi", "koi fayda nahi", "ticket close kar diya"],
+    ("customer_service", "call_drop_issue"): ["disconnected", "cut", "phone kaat diya", "beech me kaat diya"],
+    ("customer_service", "chatbot_issue"): ["bot", "machine", "chat bot bekar", "human se baat", "loop me fasa diya", "useless bot"],
+
+    # TECHNICAL APP WEBSITE
+    ("technical_app_website", "app_crash"): ["crash", "closes", "band ho jata", "app crash", "force close", "apne aap band"],
+    ("technical_app_website", "login_issue"): ["login", "sign in", "login nahi ho raha", "password galat", "id block"],
+    ("technical_app_website", "otp_issue"): ["otp", "otp nahi aa raha", "otp delay", "verification code", "sms nahi aaya"],
+    ("technical_app_website", "slow_app"): ["app is slow", "lag", "hang", "loading", "chakka ghum raha", "atak atak ke"],
+    ("technical_app_website", "website_down"): ["website down", "site down", "server error", "404", "chal nahi rahi"],
+
+    # RETURNS REFUND CANCELLATION
+    ("returns_refund_cancellation", "return_rejected"): ["return denied", "wapas nahi le rahe", "return reject", "policy ka bahana"],
+    ("returns_refund_cancellation", "return_pickup_delay"): ["pickup delay", "koi lene nahi aaya", "pickup boy call nahi kiya", "pickup pending"],
+    ("returns_refund_cancellation", "cancellation_issue"): ["cannot cancel", "cancel nahi ho raha", "cancel option gayab", "order cancel karna hai"],
+
+    # NEGATIVE INTENT & THREATS (Indian Context)
+    ("negative_intent", "angry_customer"): ["angry", "terrible", "worst", "hate", "gussa", "bekar", "ghatiya", "dimag kharab"],
+    ("negative_intent", "very_angry_customer"): ["fucking", "bullshit", "bhenchod", "madarchod", "gali", "chutiya", "harami", "kutta", "saale", "bhadwe"],
+    ("negative_intent", "legal_threat"): ["sue", "court", "consumer forum", "consumer court", "police complaint", "fir karunga", "case kar dunga", "lawyer"],
+    ("negative_intent", "social_media_threat"): ["twitter pe dalunga", "viral kar dunga", "social media", "expose karunga", "youtube pe dalunga"],
+    ("negative_intent", "threatening_to_leave"): ["uninstall", "delete app", "never use", "app delete", "amazon use karunga", "flipkart better hai", "bye bye"]
+}
+
+# General Fallbacks
+for key in ["pricing_value", "order_management", "customer_experience", "suggestions_feedback"]:
+    TAXONOMY_KEYWORDS[(key, "general_issue")] = [key.replace("_", " ")]
+
+# ==========================================
+# B. CORE EMOTION & INTENT
+# ==========================================
+EMOTION_KEYWORDS = {
+    "Very Angry": ["scam", "fraud", "court", "chor", "fucking", "hell", "sue", "lutera", "police", "fir", "chutiya", "bhenchod"],
+    "Angry": ["terrible", "worst", "pathetic", "ghatiya", "bekar", "kachra", "bakwas", "angry", "rubbish", "raddi"],
+    "Frustrated": ["waiting", "tired", "annoyed", "pareshan", "dimag", "again", "frustrated", "irritating", "kat", "deduct", "thak gaya", "roz roz"],
+    "Happy": ["nice", "good", "acha", "badiya", "khush", "happy", "smile", "mast"],
+    "Satisfied": ["resolved", "solved", "fine", "okay", "theek", "kaam ho gaya", "satisfied", "done"],
+    "Calm": []
+}
+
+CUSTOMER_INTENT_KEYWORDS = {
+    "Complaint": ["issue", "problem", "not working", "dikkat", "shikayat", "kharab", "fail", "complaint", "fix", "ghatiya", "bekar", "deduct", "charge", "toota"],
+    "Delay": ["late", "delay", "waiting", "deri", "pending", "abhi tak", "time lag raha"],
+    "Praise": ["great", "best", "superb", "thank you", "shukriya", "praise", "kudos", "dhanyawad", "awesome"],
+    "Enquiry": ["how", "status", "kab", "kaha", "guide", "query", "help", "kaise", "batao", "update"],
+    "Negative Tone": ["bad", "poor", "sad", "disappointed", "nirash"],
+    "Positive Tone": ["love", "mast", "perfect", "pyara", "zabardast"],
+    "Neutral Tone": []
+}
+
+# ==========================================
+# C. SENTIMENT OVERRIDES & FLAGS
+# ==========================================
+ASPECT_SENT_NEG_KW = [
+    "not", "bad", "fail", "worst", "kharab", "bekar", "bekaar", "nahi", "nhi", "mat", "poor", "hate", "terrible", "issue", "problem", "dont", "cant",
+    "ghatiya", "gatiya", "kachra", "bakwas", "pathetic", "fraud", "scam", "useless", "garbage", "rubbish", "slow", "late", "delay", "rude",
+    "deduct", "charge", "kat", "chutiya", "chor", "lutera", "fake", "jhutha"
+]
+ASPECT_SENT_POS_KW = [
+    "good", "great", "excellent", "fast", "best", "mast", "acha", "smooth", "awesome", "perfect", "love", "badiya", "zabardast",
+    "superb", "amazing", "fantastic", "polite", "helpful", "ek number", "fatafat"
+]
+# Crucial for Hinglish ABSA Splitting
+MIXED_FEEDBACK_KW = ["but", "however", "although", "lekin", "par", "magar", "phir bhi", "though", "yet", "warna", "jabki"]
+URGENT_KW = ["urgent", "asap", "immediately", "jaldi", "turant", "abhi", "fast", "priority", "fatafat"]
+STRONG_NEG_PHRASES = ["worst", "pathetic", "fraud", "scam", "waste", "barbad", "never", "useless", "ghatiya", "bakwas", "consumer court", "police"]
