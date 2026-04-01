@@ -25,7 +25,7 @@ def get_bert_sentiment(text: str):
 @st.cache_data(ttl=3600)
 def generate_ai_summary(df_subset):
     try:
-        api_key = st.secrets["GEMINI_API_KEY"]
+        api_key = st.secrets["AIzaSyBz6_6-r-aFQGKzmCXw_spwexoQFMmk3jM"]
         genai.configure(api_key=api_key)
         
         context = df_subset[['sentiment_label', 'primary_aspect_label', 'subcategory_label', 'priority_label']].to_string()
